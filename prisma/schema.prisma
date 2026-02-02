@@ -1,0 +1,302 @@
+// Talent Wharf - Multi-Tenant Database Schema
+// Each company is a tenant. All data is isolated by companyId.
+// Supports both web app (JWT auth) and Chrome extension (API key auth).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── TENANT: Company ────────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String?  @unique
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  candidates Candidate[]
+  jobs       Job[]
+  apiKeys    ApiKey[]
+  tags       Tag[]
+
+  @@map("companies")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+// ─── USERS (belong to a company) ────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  email     String
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(RECRUITER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  notes        Note[]
+  activities   Activity[]
+  applications Application[] @relation("ReviewedBy")
+
+  @@unique([email, companyId])
+  @@index([companyId])
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  HIRING_MANAGER
+  RECRUITER
+  VIEWER
+}
+
+// ─── API KEYS (for Chrome extension + external integrations) ────────
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  name        String
+  source      ApiSource @default(EXTENSION)
+  permissions String[]  @default(["read"])
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  userId String?
+
+  @@index([key])
+  @@index([companyId])
+  @@map("api_keys")
+}
+
+enum ApiSource {
+  EXTENSION
+  APP
+  EXTERNAL
+}
+
+// ─── CANDIDATES (talent pool per company) ───────────────────────────
+
+model Candidate {
+  id             String   @id @default(uuid())
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  linkedinUrl    String?
+  resumeUrl      String?
+  currentTitle   String?
+  currentCompany String?
+  location       String?
+  source         String?
+  sourceDetails  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  applications  Application[]
+  notes         Note[]
+  activities    Activity[]
+  candidateTags CandidateTag[]
+
+  @@unique([email, companyId])
+  @@index([companyId])
+  @@index([companyId, email])
+  @@map("candidates")
+}
+
+// ─── JOBS (job postings per company) ────────────────────────────────
+
+model Job {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  department  String?
+  location    String?
+  type        JobType   @default(FULL_TIME)
+  status      JobStatus @default(OPEN)
+  salaryMin   Int?
+  salaryMax   Int?
+  currency    String?   @default("USD")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  closedAt    DateTime?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  applications Application[]
+  pipeline     PipelineStage[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@map("jobs")
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  FREELANCE
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  PAUSED
+  CLOSED
+  FILLED
+}
+
+// ─── PIPELINE STAGES (customizable per job) ─────────────────────────
+
+model PipelineStage {
+  id       String @id @default(uuid())
+  name     String
+  position Int
+
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  applications Application[]
+
+  @@unique([jobId, position])
+  @@map("pipeline_stages")
+}
+
+// ─── APPLICATIONS (candidate → job) ─────────────────────────────────
+
+model Application {
+  id        String            @id @default(uuid())
+  status    ApplicationStatus @default(NEW)
+  rating    Int?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  stageId String?
+  stage   PipelineStage? @relation(fields: [stageId], references: [id])
+
+  reviewedById String?
+  reviewedBy   User?   @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  @@unique([candidateId, jobId])
+  @@index([jobId])
+  @@index([candidateId])
+  @@map("applications")
+}
+
+enum ApplicationStatus {
+  NEW
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+// ─── NOTES (on candidates) ──────────────────────────────────────────
+
+model Note {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  @@index([candidateId])
+  @@map("notes")
+}
+
+// ─── TAGS (company-scoped labels for candidates) ────────────────────
+
+model Tag {
+  id    String @id @default(uuid())
+  name  String
+  color String @default("#6366f1")
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  candidateTags CandidateTag[]
+
+  @@unique([name, companyId])
+  @@index([companyId])
+  @@map("tags")
+}
+
+model CandidateTag {
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  tagId String
+  tag   Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([candidateId, tagId])
+  @@map("candidate_tags")
+}
+
+// ─── ACTIVITY LOG (audit trail per candidate) ───────────────────────
+
+model Activity {
+  id        String       @id @default(uuid())
+  type      ActivityType
+  detail    String?
+  createdAt DateTime     @default(now())
+
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([candidateId])
+  @@map("activities")
+}
+
+enum ActivityType {
+  CREATED
+  UPDATED
+  NOTE_ADDED
+  STAGE_CHANGED
+  STATUS_CHANGED
+  EMAIL_SENT
+  IMPORTED_FROM_EXTENSION
+}
