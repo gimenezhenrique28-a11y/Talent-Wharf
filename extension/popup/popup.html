@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TalentWharf</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <!-- Official TalentWharf SVG wordmark (white) -->
+        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 160 160"
+             height="60" style="width:auto;display:block;" aria-label="TalentWharf">
+          <path fill="currentColor" d="M61.37,65.52h6.16v9.81c1.58-1.65,4.12-2.89,7.39-2.89,5.27,0,8.85,3.54,8.85,9.16v11.54h-6.16v-9.74c0-3.42-1.65-5.5-4.81-5.5-3.35,0-5.27,2.04-5.27,5.54v9.7h-6.16v-27.63Z"/>
+          <path fill="currentColor" d="M86.26,87.3c0-3.96,3.5-5.93,8.27-6.39l8.08-.73v-.12c0-1.54-1.31-2.77-4.58-2.77-2.77,0-4.89,1.15-5.5,2.73l-5.54-1.5c1.27-3.66,5.73-6.08,11.31-6.08,6.46,0,10.27,2.58,10.27,7.66v7.39c0,1.08.46,1.58,2.62,1.12v4.54c-4.5.85-6.97-.31-8-2.23-1.85,1.62-4.77,2.66-8.35,2.66-5,0-8.58-2.27-8.58-6.27ZM102.61,84.3l-7.2.73c-2.12.19-3.19.69-3.19,2.04s1.35,2,3.73,2c3.16,0,6.66-1.35,6.66-3.69v-1.08Z"/>
+          <path fill="currentColor" d="M130.28,77.95c-3.8-.09-2.39-.08-3.7-.1-5.21-.09-7.11,2.52-7.11,7.06v8.24h-6.16v-20.28h6.16v3.5c1.77-2.58,2.92-3.51,6.23-3.51.92,0,.15-.01,4.58.01v5.08Z"/>
+          <path fill="currentColor" d="M144.4,65.1c1.89,0,3.85.27,5.08.73l-.81,4.81c-1.27-.35-2.46-.54-3.89-.54-2.62,0-3.85.77-3.85,2.58v.19h7.47v5.08h-7.47v15.2h-6.08v-15.2h-4.58v-5.08h4.58v-.31c0-5.04,3.54-7.47,9.54-7.47Z"/>
+          <polygon fill="currentColor" points="22.99 93.15 18.01 65.5 9.61 65.5 14.69 93.15 22.99 93.15"/>
+          <polygon fill="currentColor" points="35.34 65.5 39.97 93.15 47.25 93.15 42.61 65.5 35.34 65.5"/>
+          <polygon fill="currentColor" points="30.36 93.15 35.02 65.5 27.94 65.5 23.3 93.15 30.36 93.15"/>
+          <polygon fill="currentColor" points="52.54 65.5 47.56 93.15 55.67 93.15 60.75 65.5 52.54 65.5"/>
+        </svg>
+      </div>
+      <button class="settings-btn" id="openOptions" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- No API key warning -->
+    <div id="noKeyWarning" class="warning hidden">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      No API key set. <a href="#" id="goToOptions">Configure →</a>
+    </div>
+
+    <!-- Not on supported page -->
+    <div id="unsupported" class="state-box hidden">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <p>Navigate to a <strong>LinkedIn profile</strong> or <strong>Gmail thread</strong> to capture a candidate.</p>
+    </div>
+
+    <!-- Candidate data preview -->
+    <div id="candidatePreview" class="hidden">
+      <div class="source-badge" id="sourceBadge">LinkedIn</div>
+
+      <div class="candidate-card">
+        <div class="avatar" id="avatar"></div>
+        <div class="candidate-info">
+          <div class="candidate-name" id="candidateName">—</div>
+          <div class="candidate-headline" id="candidateHeadline">—</div>
+        </div>
+      </div>
+
+      <div id="candidateEmail" class="detail-row hidden">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+        <span id="emailText">—</span>
+      </div>
+
+      <div id="skillsSection" class="hidden">
+        <div class="skills-label">Skills detected</div>
+        <div class="skills-list" id="skillsList"></div>
+      </div>
+
+      <button class="btn-capture" id="captureBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add to Wharf
+      </button>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loadingState" class="state-box hidden">
+      <div class="spinner"></div>
+      <p id="loadingText">Extracting candidate data...</p>
+    </div>
+
+    <!-- Success state -->
+    <div id="successState" class="state-box hidden">
+      <div class="success-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <p class="success-title">Candidate added</p>
+      <p class="success-sub" id="successName"></p>
+    </div>
+
+    <!-- Error state -->
+    <div id="errorState" class="state-box hidden">
+      <div class="error-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <p class="error-title">Failed</p>
+      <p class="error-msg" id="errorMsg"></p>
+      <button class="btn-retry" id="retryBtn">Try again</button>
+    </div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

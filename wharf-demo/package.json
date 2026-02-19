@@ -1,0 +1,24 @@
+{
+  "name": "wharf-demo",
+  "version": "1.0.0",
+  "description": "YC-style demo video for TalentWharf",
+  "scripts": {
+    "start": "npx remotion studio",
+    "build": "npx remotion render WharfDemo out/wharf-demo.mp4",
+    "preview": "npx remotion preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@remotion/cli": "4.0.423",
+    "@remotion/google-fonts": "4.0.423",
+    "@remotion/transitions": "4.0.423",
+    "@types/react": "19.1.6",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.423",
+    "typescript": "5.8.3"
+  }
+}
