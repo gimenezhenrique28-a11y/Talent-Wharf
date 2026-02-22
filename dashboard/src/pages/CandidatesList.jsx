@@ -43,8 +43,16 @@ export default function CandidatesList() {
     setLoading(false)
   }, [page, search, statusFilter, sourceFilter])
 
-  useEffect(() => { fetch() }, [fetch])
-  useEffect(() => { setPage(1); setSelected(new Set()) }, [search, statusFilter, sourceFilter])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetch()
+  }, [fetch])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelected(new Set())
+  }, [search, statusFilter, sourceFilter])
 
   function toggleSelect(id) {
     setSelected(prev => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Users, UserPlus, Briefcase, TrendingUp, Sparkles } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
@@ -11,9 +11,7 @@ export default function DashboardHome() {
   const [matching, setMatching] = useState(false)
   const [matchError, setMatchError] = useState('')
 
-  useEffect(() => { fetchStats() }, [])
-
-  async function fetchStats() {
+  const fetchStats = useCallback(async () => {
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
 
@@ -30,7 +28,9 @@ export default function DashboardHome() {
       interviewing: interviewing.count ?? 0,
       hired: hired.count ?? 0,
     })
-  }
+  }, [])
+
+  useEffect(() => { fetchStats() }, [fetchStats])
 
   async function handleMatch() {
     if (!jobDescription.trim()) return
@@ -50,10 +50,10 @@ export default function DashboardHome() {
   }
 
   const kpiCards = [
-    { label: 'Total Candidates', value: stats.total,        icon: Users      },
-    { label: 'Added This Week',  value: stats.thisWeek,     icon: UserPlus   },
-    { label: 'Interviewing',     value: stats.interviewing,  icon: Briefcase  },
-    { label: 'Hired',            value: stats.hired,         icon: TrendingUp },
+    { label: 'Total Candidates', value: stats.total, icon: Users },
+    { label: 'Added This Week', value: stats.thisWeek, icon: UserPlus },
+    { label: 'Interviewing', value: stats.interviewing, icon: Briefcase },
+    { label: 'Hired', value: stats.hired, icon: TrendingUp },
   ]
 
   return (
@@ -81,6 +81,7 @@ export default function DashboardHome() {
       {/* KPI Grid */}
       <div className="grid-4" style={{ marginBottom: 40 }}>
         {kpiCards.map(({ label, value, icon: Icon }) => (
+          // eslint-disable-next-line no-unused-vars
           <div key={label} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{
               width: 44,

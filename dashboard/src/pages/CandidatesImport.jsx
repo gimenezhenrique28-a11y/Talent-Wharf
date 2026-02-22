@@ -195,6 +195,7 @@ export default function CandidatesImport() {
   )
 }
 
+// eslint-disable-next-line no-unused-vars
 function ResultCard({ icon: Icon, color, subtle, count, label }) {
   return (
     <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -9,7 +9,7 @@ import EmailComposer from '../components/EmailComposer.jsx'
 export default function CandidateDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
 
   const [candidate, setCandidate] = useState(null)
   const [notes, setNotes] = useState([])
@@ -21,9 +21,7 @@ export default function CandidateDetail() {
   const [addingNote, setAddingNote] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
 
-  useEffect(() => { fetchData() }, [id])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     const [{ data: c }, { data: n }] = await Promise.all([
       supabase.from('candidates').select('*').eq('id', id).single(),
@@ -41,7 +39,9 @@ export default function CandidateDetail() {
     })
     setNotes(n ?? [])
     setLoading(false)
-  }
+  }, [id])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   async function handleSave() {
     setSaving(true)
@@ -161,7 +161,7 @@ export default function CandidateDetail() {
               <div className="input-label" style={{ marginBottom: 6 }}>Status</div>
               {editing ? (
                 <select className="input" value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}>
-                  {['new','contacted','interviewing','hired','rejected'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {['new', 'contacted', 'interviewing', 'hired', 'rejected'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               ) : (
                 <span className={`badge badge-${candidate.status}`}>{candidate.status}</span>
