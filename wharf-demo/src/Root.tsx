@@ -8,6 +8,7 @@ import { EmailComposerVideo } from "./videos/EmailComposerVideo";
 import { CSVImportVideo } from "./videos/CSVImportVideo";
 import { ExtensionLinkedInVideo } from "./videos/ExtensionLinkedInVideo";
 import { ExtensionGmailVideo } from "./videos/ExtensionGmailVideo";
+import { FullDemoVideo } from "./videos/FullDemoVideo";
 
 const W = 437;
 const H = 797;
@@ -17,6 +18,16 @@ const DUR = 120; // 4 seconds at 30fps
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      {/* 15s full demo — 4:3 */}
+      <Composition
+        id="FullDemo"
+        component={FullDemoVideo}
+        durationInFrames={450}
+        fps={FPS}
+        width={1024}
+        height={768}
+      />
+
       {/* Original combined demo */}
       <Composition
         id="WharfDemo"
