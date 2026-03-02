@@ -225,7 +225,7 @@ select.input {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Page layout ─────────────────────────────────────────────────────── */
-.page { padding: 40px 48px; max-width: 1280px; margin: 0 auto; }
+.page { padding: 40px 48px; }
 .page-narrow { padding: 40px 48px; max-width: 800px; margin: 0 auto; }
 .page-header {
   display: flex;
