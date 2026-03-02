@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, Upload, FileText, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 export default function CandidateForm() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const cvFileRef = useRef(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [parsing, setParsing] = useState(false)
+  const [parsedFile, setParsedFile] = useState(null)
 
   const [form, setForm] = useState({
     name: '', email: '', headline: '', linkedin_url: '',
@@ -19,6 +22,59 @@ export default function CandidateForm() {
     return e => setForm(prev => ({ ...prev, [field]: e.target.value }))
   }
 
+  // ── Parse CV to pre-fill form ──────────────────────────────────────────────
+
+  async function handleCvFileChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setParsedFile(null)
+    setParsing(true)
+    setError('')
+
+    try {
+      const dataUrl = await fileToBase64(file)
+      const base64 = dataUrl.split(',')[1]
+      const { data: { session } } = await supabase.auth.getSession()
+
+      const res = await supabase.functions.invoke('parse-resume', {
+        body: { pdf_base64: base64, filename: file.name },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+
+      if (res.error) throw new Error(res.error.message)
+      const d = res.data?.data ?? {}
+
+      setForm(prev => ({
+        ...prev,
+        name:     d.name     ? String(d.name)     : prev.name,
+        email:    d.email    ? String(d.email)    : prev.email,
+        headline: d.headline ? String(d.headline) : prev.headline,
+        about:    d.about    ? String(d.about)    : prev.about,
+        skills:   Array.isArray(d.skills) && d.skills.length > 0
+          ? d.skills.join(', ')
+          : prev.skills,
+        source: 'Manual',
+      }))
+
+      setParsedFile(file.name)
+    } catch (err) {
+      setError(err?.message ?? 'Failed to parse CV')
+    }
+    setParsing(false)
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -28,21 +84,48 @@ export default function CandidateForm() {
       ? form.skills.split(',').map(s => s.trim()).filter(Boolean)
       : []
 
-    const { error } = await supabase.from('candidates').insert({
-      name: form.name,
-      email: form.email || null,
-      headline: form.headline || null,
-      linkedin_url: form.linkedin_url || null,
-      skills: skillsArray,
-      about: form.about || null,
-      notes: form.notes || null,
-      source: form.source,
-      org_id: profile?.org_id,
-    })
+    const { data: newCandidate, error: insertErr } = await supabase
+      .from('candidates')
+      .insert({
+        name: form.name,
+        email: form.email || null,
+        headline: form.headline || null,
+        linkedin_url: form.linkedin_url || null,
+        skills: skillsArray,
+        about: form.about || null,
+        notes: form.notes || null,
+        source: form.source,
+        org_id: profile?.org_id,
+      })
+      .select('id')
+      .single()
+
+    if (insertErr) {
+      setSaving(false)
+      setError(insertErr.message)
+      return
+    }
+
+    // Fire webhook for candidate.created (non-fatal)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await supabase.functions.invoke('fire-webhooks', {
+        body: {
+          event: 'candidate.created',
+          payload: {
+            candidate_id: newCandidate.id,
+            candidate_name: form.name,
+            source: form.source,
+          },
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+    } catch (err) {
+      console.warn('Webhook fire failed (non-fatal):', err)
+    }
 
     setSaving(false)
-    if (error) setError(error.message)
-    else navigate('/candidates')
+    navigate(`/candidates/${newCandidate.id}`)
   }
 
   return (
@@ -54,8 +137,45 @@ export default function CandidateForm() {
       </div>
 
       <div style={{ maxWidth: 800 }}>
-        <h2 className="page-title" style={{ marginBottom: 8 }}>Add Candidate</h2>
-        <p style={{ color: 'var(--color-text-secondary)', marginBottom: 32 }}>Fill in the candidate's details</p>
+        {/* Header row with Parse PDF button */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32, gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h2 className="page-title" style={{ marginBottom: 8 }}>Add Candidate</h2>
+            <p style={{ color: 'var(--color-text-secondary)' }}>Fill in the candidate's details</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <input
+              ref={cvFileRef}
+              type="file"
+              accept=".pdf"
+              style={{ display: 'none' }}
+              onChange={handleCvFileChange}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => cvFileRef.current?.click()}
+              disabled={parsing}
+            >
+              {parsing
+                ? <><div className="spinner" /> Parsing CV...</>
+                : <><Upload size={15} /> Parse from PDF</>}
+            </button>
+            {parsedFile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                <FileText size={13} />
+                <span>Pre-filled from <strong>{parsedFile}</strong></span>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--color-text-tertiary)' }}
+                  onClick={() => setParsedFile(null)}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {error && <div className="error-banner" style={{ marginBottom: 24 }}>{error}</div>}
 
@@ -122,7 +242,7 @@ export default function CandidateForm() {
               <button type="button" className="btn btn-secondary" onClick={() => navigate('/candidates')}>
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
+              <button type="submit" className="btn btn-primary" disabled={saving || parsing}>
                 {saving ? <><div className="spinner" /> Saving...</> : <><Save size={16} /> Save Candidate</>}
               </button>
             </div>

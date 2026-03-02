@@ -1,15 +1,44 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User } from 'lucide-react'
+import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, Upload, CheckCircle, MapPin, Building2, Globe, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { format, formatDistanceToNow } from 'date-fns'
 import EmailComposer from '../components/EmailComposer.jsx'
 
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function Toast({ message, type, onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000)
+    return () => clearTimeout(t)
+  }, [onDismiss])
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: type === 'error' ? '#2d1515' : 'var(--color-bg-elevated)',
+      border: `1px solid ${type === 'error' ? '#7d2020' : 'var(--color-border-strong)'}`,
+      borderRadius: 'var(--radius-md)',
+      padding: '12px 18px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      fontSize: 14, fontWeight: 500,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+      maxWidth: 420,
+    }}>
+      <CheckCircle size={16} color={type === 'error' ? '#e57373' : 'var(--color-accent)'} />
+      <span style={{ color: type === 'error' ? '#e57373' : 'var(--color-text-primary)' }}>{message}</span>
+    </div>
+  )
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
 export default function CandidateDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const cvFileRef = useRef(null)
 
   const [candidate, setCandidate] = useState(null)
   const [notes, setNotes] = useState([])
@@ -20,6 +49,20 @@ export default function CandidateDetail() {
   const [noteText, setNoteText] = useState('')
   const [addingNote, setAddingNote] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+
+  // CV parsing
+  const [parseCvLoading, setParseCvLoading] = useState(false)
+
+  // GitHub enrichment
+  const [githubData, setGithubData] = useState(null)
+  const [githubLoading, setGithubLoading] = useState(false)
+  const [githubError, setGithubError] = useState('')
+
+  // Toast
+  const [toast, setToast] = useState(null)
+  function showToast(message, type = 'success') {
+    setToast({ message, type })
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -33,6 +76,7 @@ export default function CandidateDetail() {
       headline: c?.headline ?? '',
       email: c?.email ?? '',
       linkedin_url: c?.linkedin_url ?? '',
+      github_url: c?.github_url ?? '',
       about: c?.about ?? '',
       status: c?.status ?? 'new',
       skills: Array.isArray(c?.skills) ? c.skills.join(', ') : '',
@@ -49,15 +93,40 @@ export default function CandidateDetail() {
       ? editForm.skills.split(',').map(s => s.trim()).filter(Boolean)
       : []
 
+    const statusChanged = candidate?.status !== editForm.status
+    const prevStatus = candidate?.status
+
     await supabase.from('candidates').update({
       name: editForm.name,
       headline: editForm.headline,
       email: editForm.email || null,
       linkedin_url: editForm.linkedin_url || null,
+      github_url: editForm.github_url || null,
       about: editForm.about || null,
       status: editForm.status,
       skills: skillsArray,
     }).eq('id', id)
+
+    // Fire webhook if status changed
+    if (statusChanged) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await supabase.functions.invoke('fire-webhooks', {
+          body: {
+            event: 'candidate.status_changed',
+            payload: {
+              candidate_id: id,
+              candidate_name: editForm.name,
+              old_status: prevStatus,
+              new_status: editForm.status,
+            },
+          },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+      } catch (err) {
+        console.warn('Webhook fire failed (non-fatal):', err)
+      }
+    }
 
     setSaving(false)
     setEditing(false)
@@ -84,6 +153,113 @@ export default function CandidateDetail() {
     setNotes(data ?? [])
   }
 
+  // ── GitHub Enrichment ──────────────────────────────────────────────────────
+
+  async function handleEnrichGithub() {
+    const url = candidate?.github_url
+    if (!url) return
+
+    const match = url.match(/github\.com\/([^/\s?#]+)/)
+    const username = match ? match[1] : url.replace(/^@/, '').trim()
+    if (!username) { setGithubError('Could not extract username from URL'); return }
+
+    setGithubLoading(true)
+    setGithubError('')
+    setGithubData(null)
+
+    try {
+      const [userRes, reposRes] = await Promise.all([
+        fetch(`https://api.github.com/users/${username}`),
+        fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=8`),
+      ])
+      if (!userRes.ok) throw new Error(`GitHub returned ${userRes.status} — check the URL`)
+
+      const userData = await userRes.json()
+      const reposData = reposRes.ok ? await reposRes.json() : []
+
+      const langCounts = {}
+      for (const repo of reposData) {
+        if (repo.language) langCounts[repo.language] = (langCounts[repo.language] ?? 0) + 1
+      }
+      const topLanguages = Object.entries(langCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([lang]) => lang)
+
+      setGithubData({
+        avatar_url: userData.avatar_url,
+        bio: userData.bio,
+        followers: userData.followers,
+        public_repos: userData.public_repos,
+        company: userData.company,
+        location: userData.location,
+        blog: userData.blog,
+        repos: reposData.slice(0, 6).map(r => ({
+          name: r.name,
+          description: r.description,
+          stars: r.stargazers_count,
+          language: r.language,
+          url: r.html_url,
+        })),
+        topLanguages,
+        username,
+      })
+    } catch (err) {
+      setGithubError(err instanceof Error ? err.message : 'Failed to fetch GitHub data')
+    }
+    setGithubLoading(false)
+  }
+
+  // ── Parse CV ───────────────────────────────────────────────────────────────
+
+  async function handleCvFileChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    await handleParseCv(file)
+  }
+
+  async function handleParseCv(file) {
+    setParseCvLoading(true)
+    try {
+      const dataUrl = await fileToBase64(file)
+      const base64 = dataUrl.split(',')[1]
+      const { data: { session } } = await supabase.auth.getSession()
+
+      const res = await supabase.functions.invoke('cv-enrich', {
+        body: {
+          candidate_id: id,
+          pdf_base64: base64,
+          filename: file.name,
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+
+      if (res.error) throw new Error(res.error.message)
+      const updated = res.data?.updated ?? []
+      if (updated.length > 0) {
+        showToast(`CV parsed — updated: ${updated.join(', ')}`)
+      } else {
+        showToast('CV parsed — all fields were already filled')
+      }
+      fetchData()
+    } catch (err) {
+      showToast(err?.message ?? 'Failed to parse CV', 'error')
+    }
+    setParseCvLoading(false)
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
       <div className="spinner spinner-lg" />
@@ -108,9 +284,30 @@ export default function CandidateDetail() {
           <ArrowLeft size={16} /> Back
         </Link>
         <div style={{ flex: 1 }} />
+
+        {/* Parse CV button */}
+        <input
+          ref={cvFileRef}
+          type="file"
+          accept=".pdf"
+          style={{ display: 'none' }}
+          onChange={handleCvFileChange}
+        />
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => cvFileRef.current?.click()}
+          disabled={parseCvLoading}
+          title="Upload a PDF resume to auto-fill empty fields"
+        >
+          {parseCvLoading
+            ? <><div className="spinner" /> Parsing...</>
+            : <><Upload size={14} /> Parse CV</>}
+        </button>
+
         <button className="btn btn-secondary btn-sm" onClick={() => setEmailOpen(true)}>
           <Mail size={14} /> Send Email
         </button>
+
         {editing ? (
           <>
             <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
@@ -131,7 +328,7 @@ export default function CandidateDetail() {
       {/* Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 20, alignItems: 'start' }}>
 
-        {/* LEFT: Profile card */}
+        {/* LEFT: Profile card + GitHub card */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card">
             {/* Avatar */}
@@ -182,6 +379,10 @@ export default function CandidateDetail() {
                     <input className="input" value={editForm.linkedin_url} onChange={e => setEditForm(p => ({ ...p, linkedin_url: e.target.value }))} />
                   </div>
                   <div className="input-group">
+                    <label className="input-label">GitHub URL</label>
+                    <input className="input" placeholder="https://github.com/username" value={editForm.github_url} onChange={e => setEditForm(p => ({ ...p, github_url: e.target.value }))} />
+                  </div>
+                  <div className="input-group">
                     <label className="input-label">Skills (comma-separated)</label>
                     <input className="input" value={editForm.skills} onChange={e => setEditForm(p => ({ ...p, skills: e.target.value }))} />
                   </div>
@@ -196,6 +397,11 @@ export default function CandidateDetail() {
                   {candidate.linkedin_url && (
                     <a href={candidate.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--color-text-secondary)' }}>
                       <Linkedin size={14} /> LinkedIn <ExternalLink size={12} />
+                    </a>
+                  )}
+                  {candidate.github_url && (
+                    <a href={candidate.github_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--color-text-secondary)' }}>
+                      <Github size={14} /> GitHub <ExternalLink size={12} />
                     </a>
                   )}
                   {candidate.source && (
@@ -219,6 +425,15 @@ export default function CandidateDetail() {
               )}
             </div>
           </div>
+
+          {/* GitHub Panel */}
+          <GitHubPanel
+            githubUrl={candidate.github_url}
+            githubData={githubData}
+            githubLoading={githubLoading}
+            githubError={githubError}
+            onEnrich={handleEnrichGithub}
+          />
         </div>
 
         {/* RIGHT: Content */}
@@ -309,11 +524,178 @@ export default function CandidateDetail() {
         />
       )}
 
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />
+      )}
+
       <style>{`
         @media (max-width: 900px) {
           .detail-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
+    </div>
+  )
+}
+
+// ── GitHub Panel ──────────────────────────────────────────────────────────────
+
+function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnrich }) {
+  if (!githubUrl && !githubData) {
+    return (
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <Github size={18} color="var(--color-accent)" />
+          <h3 style={{ fontWeight: 600, fontSize: 15 }}>GitHub</h3>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 12 }}>
+          Add a GitHub URL in edit mode to enrich this profile with public data.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card" style={{ padding: '20px 24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <Github size={18} color="var(--color-accent)" />
+        <h3 style={{ fontWeight: 600, fontSize: 15 }}>GitHub</h3>
+        <div style={{ flex: 1 }} />
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onEnrich}
+          disabled={githubLoading || !githubUrl}
+          style={{ fontSize: 12 }}
+        >
+          {githubLoading ? <><div className="spinner" /> Loading...</> : 'Enrich'}
+        </button>
+      </div>
+
+      {githubError && (
+        <p style={{ fontSize: 13, color: '#e57373', marginBottom: 8 }}>{githubError}</p>
+      )}
+
+      {!githubData && !githubLoading && !githubError && githubUrl && (
+        <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>
+          Click <strong>Enrich</strong> to load public GitHub data.
+        </p>
+      )}
+
+      {githubData && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Profile header */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <img
+              src={githubData.avatar_url}
+              alt="GitHub avatar"
+              style={{ width: 48, height: 48, borderRadius: '50%', border: '1px solid var(--color-border)' }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>@{githubData.username}</div>
+              {githubData.bio && (
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2, lineHeight: 1.5 }}>{githubData.bio}</div>
+              )}
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              <Users size={13} /> {githubData.followers} followers
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              <Github size={13} /> {githubData.public_repos} repos
+            </div>
+          </div>
+
+          {/* Meta */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {githubData.company && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                <Building2 size={12} /> {githubData.company}
+              </div>
+            )}
+            {githubData.location && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                <MapPin size={12} /> {githubData.location}
+              </div>
+            )}
+            {githubData.blog && (
+              <a href={githubData.blog.startsWith('http') ? githubData.blog : `https://${githubData.blog}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                <Globe size={12} /> {githubData.blog}
+              </a>
+            )}
+          </div>
+
+          {/* Top Languages */}
+          {githubData.topLanguages.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                Top Languages
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {githubData.topLanguages.map(lang => (
+                  <span key={lang} style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-secondary)',
+                    padding: '3px 10px',
+                    borderRadius: 100,
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}>{lang}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Repos */}
+          {githubData.repos.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                Recent Repos
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {githubData.repos.map(repo => (
+                  <a
+                    key={repo.name}
+                    href={repo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'block',
+                      background: 'var(--color-bg)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '8px 12px',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {repo.name}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
+                        <Star size={11} /> {repo.stars}
+                      </div>
+                    </div>
+                    {repo.description && (
+                      <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {repo.description}
+                      </div>
+                    )}
+                    {repo.language && (
+                      <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
+                        {repo.language}
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

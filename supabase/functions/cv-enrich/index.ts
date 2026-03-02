@@ -34,35 +34,55 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST")    return json({ error: "Method not allowed" }, 405, cors);
 
-  // ── Auth (same wharf_sk_ pattern as extension-capture) ───────────────────
+  // ── Auth: accept either a wharf_sk_ API key OR a JWT from the dashboard ───
   const authHeader = req.headers.get("Authorization") ?? "";
-  const rawKey     = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const rawToken   = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 
-  if (!rawKey.startsWith("wharf_sk_")) {
-    return json({ error: "Invalid API key format" }, 401, cors);
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  let   userId: string;
+  let   orgId:  string;
+
+  if (rawToken.startsWith("wharf_sk_")) {
+    // ── API key auth (existing path) ────────────────────────────────────────
+    const keyHash = await sha256(rawToken);
+    const { data: apiKey, error: keyErr } = await supabaseAdmin
+      .from("api_keys")
+      .select("id, user_id, revoked")
+      .eq("key_hash", keyHash)
+      .single();
+
+    if (keyErr || !apiKey || apiKey.revoked) {
+      return json({ error: "Unauthorized" }, 401, cors);
+    }
+    userId = apiKey.user_id;
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("org_id")
+      .eq("id", userId)
+      .single();
+    if (!profile?.org_id) return json({ error: "Profile not found" }, 404, cors);
+    orgId = profile.org_id;
+
+  } else {
+    // ── JWT auth (dashboard path) ───────────────────────────────────────────
+    if (!rawToken) return json({ error: "Missing Authorization header" }, 401, cors);
+
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      global: { headers: { Authorization: `Bearer ${rawToken}` } },
+    });
+    const { data: { user }, error: authErr } = await supabaseUser.auth.getUser();
+    if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+    userId = user.id;
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("org_id")
+      .eq("id", userId)
+      .single();
+    if (!profile?.org_id) return json({ error: "Profile not found" }, 404, cors);
+    orgId = profile.org_id;
   }
-
-  const keyHash  = await sha256(rawKey);
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-  const { data: apiKey, error: keyErr } = await supabase
-    .from("api_keys")
-    .select("id, user_id, revoked")
-    .eq("key_hash", keyHash)
-    .single();
-
-  if (keyErr || !apiKey || apiKey.revoked) {
-    return json({ error: "Unauthorized" }, 401, cors);
-  }
-
-  // ── Org lookup ────────────────────────────────────────────────────────────
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .eq("id", apiKey.user_id)
-    .single();
-
-  if (!profile?.org_id) return json({ error: "Profile not found" }, 404, cors);
 
   // ── Parse body ────────────────────────────────────────────────────────────
   let body: RequestBody;
@@ -75,11 +95,11 @@ Deno.serve(async (req: Request) => {
   if (!pdf_base64)   return json({ error: "pdf_base64 is required" }, 400, cors);
 
   // ── Verify candidate belongs to this org ──────────────────────────────────
-  const { data: candidate } = await supabase
+  const { data: candidate } = await supabaseAdmin
     .from("candidates")
     .select("id, name, headline, about, skills, experience, email")
     .eq("id", candidate_id)
-    .eq("org_id", profile.org_id)
+    .eq("org_id", orgId)
     .single();
 
   if (!candidate) return json({ error: "Candidate not found" }, 404, cors);
@@ -88,12 +108,9 @@ Deno.serve(async (req: Request) => {
     return json({ error: "CV parsing not configured — set ANTHROPIC_API_KEY in edge function secrets" }, 503, cors);
   }
 
-  // ── Diagnostic log — helps us confirm data is arriving ───────────────────
   console.log(`cv-enrich: candidate=${candidate_id} pdf_base64_len=${pdf_base64.length} filename=${filename ?? "none"}`);
 
   // ── Call Claude with the PDF ───────────────────────────────────────────────
-  // Uses claude-3-5-sonnet which has stable native PDF support.
-  // The pdfs-2024-09-25 beta header is required for the document block type.
   const PROMPT = `Extract structured data from this CV/resume.
 Return ONLY valid JSON — no markdown fences, no explanation. Use this exact shape:
 {
@@ -122,7 +139,6 @@ Rules:
         "content-type":      "application/json",
       },
       body: JSON.stringify({
-        // claude-3-5-sonnet supports PDF document blocks; haiku did not when the beta launched
         model:      "claude-3-5-sonnet-20241022",
         max_tokens: 1024,
         messages: [{
@@ -158,7 +174,6 @@ Rules:
   }
 
   // ── Only fill in fields that are currently empty on the candidate ─────────
-  // (never overwrite data the user already has)
   const patch: Record<string, unknown> = {};
 
   if (!candidate.headline  && extracted.headline) patch.headline = String(extracted.headline).slice(0, 500);
@@ -187,19 +202,19 @@ Rules:
 
   if (Object.keys(patch).length > 0) {
     patch.enriched_at = new Date().toISOString();
-    await supabase
+    await supabaseAdmin
       .from("candidates")
       .update(patch)
       .eq("id", candidate_id);
   }
 
   // ── Activity log ──────────────────────────────────────────────────────────
-  await supabase.from("activity_log").insert({
-    org_id:       profile.org_id,
+  await supabaseAdmin.from("activity_log").insert({
+    org_id:       orgId,
     candidate_id,
-    user_id:      apiKey.user_id,
+    user_id:      userId,
     action:       "cv_parsed",
-    details: {
+    metadata: {
       filename:       filename ?? null,
       fields_updated: Object.keys(patch),
     },

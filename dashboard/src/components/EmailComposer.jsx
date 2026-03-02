@@ -7,20 +7,20 @@ const TEMPLATES = {
   interview_invite: {
     name: 'Interview Invitation',
     subject: 'Interview Invitation — {position} at {company}',
-    body: `Hi {name},\n\nWe'd love to invite you to interview for the {position} role at {company}.\n\n📅 Date: {date}\n⏰ Time: {time}\n📍 Location: {location}\n💻 Format: {format}\n⏱ Duration: {duration}\n\nPlease reply to confirm your availability.\n\nBest regards,\nThe {company} Team`,
-    vars: ['company', 'position', 'date', 'time', 'location', 'format', 'duration'],
+    body: `Hi {name},\n\nWe'd love to invite you to interview for the {position} role at {company}.\n\n📅 Date: {date}\n⏰ Time: {time}\n📍 Location: {location}\n💻 Format: {format}\n⏱ Duration: {duration}\n\nPlease reply to confirm your availability or book a time directly: {scheduling_link}\n\nBest regards,\nThe {company} Team`,
+    vars: ['company', 'position', 'date', 'time', 'location', 'format', 'duration', 'scheduling_link'],
   },
   follow_up: {
     name: 'Follow Up',
     subject: 'Following Up — {position} at {company}',
-    body: `Hi {name},\n\nI wanted to follow up regarding the {position} opportunity at {company}.\n\nWe were impressed with your profile and would love to continue the conversation.\n\nAre you still interested?\n\nBest regards,\nThe {company} Team`,
-    vars: ['company', 'position'],
+    body: `Hi {name},\n\nI wanted to follow up regarding the {position} opportunity at {company}.\n\nWe were impressed with your profile and would love to continue the conversation.\n\nAre you still interested? If so, feel free to book a time: {scheduling_link}\n\nBest regards,\nThe {company} Team`,
+    vars: ['company', 'position', 'scheduling_link'],
   },
   initial_outreach: {
     name: 'Initial Outreach',
     subject: 'Exciting Opportunity — {position} at {company}',
-    body: `Hi {name},\n\nI came across your profile and think you'd be a great fit for the {position} role at {company}.\n\nWould you be open to a quick call to learn more?\n\nBest regards,\nThe {company} Team`,
-    vars: ['company', 'position'],
+    body: `Hi {name},\n\nI came across your profile and think you'd be a great fit for the {position} role at {company}.\n\nWould you be open to a quick call to learn more? {scheduling_link}\n\nBest regards,\nThe {company} Team`,
+    vars: ['company', 'position', 'scheduling_link'],
   },
   rejection: {
     name: 'Rejection Notice',
@@ -47,11 +47,32 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
 
   const tpl = TEMPLATES[templateId]
 
+  // ── Load scheduling link from profile on mount ────────────────────────────
+  useEffect(() => {
+    async function loadSchedulingLink() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('calendly_url')
+        .eq('id', user.id)
+        .single()
+      if (profile?.calendly_url) {
+        setVars(p => ({ scheduling_link: profile.calendly_url, ...p }))
+      }
+    }
+    loadSchedulingLink()
+  }, [])
+
   useEffect(() => {
     if (tpl) {
       setSubject(tpl.subject)
       setBody(tpl.body)
-      setVars({})
+      // Keep scheduling_link when switching templates
+      setVars(p => {
+        const keepLink = p.scheduling_link ? { scheduling_link: p.scheduling_link } : {}
+        return keepLink
+      })
     }
   }, [templateId])
 
@@ -131,8 +152,20 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
               <div className="grid-2">
                 {tpl.vars.map(v => (
                   <div key={v} className="input-group">
-                    <label className="input-label">{v.replace(/_/g, ' ')}</label>
-                    <input className="input" placeholder={`{${v}}`} value={vars[v] ?? ''} onChange={e => setVars(p => ({ ...p, [v]: e.target.value }))} />
+                    <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {v.replace(/_/g, ' ')}
+                      {v === 'scheduling_link' && vars.scheduling_link && (
+                        <span style={{ fontSize: 10, background: 'var(--color-accent-subtle)', color: 'var(--color-accent)', padding: '1px 7px', borderRadius: 100, fontWeight: 600 }}>
+                          auto-filled
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      className="input"
+                      placeholder={v === 'scheduling_link' ? 'https://calendly.com/...' : `{${v}}`}
+                      value={vars[v] ?? ''}
+                      onChange={e => setVars(p => ({ ...p, [v]: e.target.value }))}
+                    />
                   </div>
                 ))}
               </div>
@@ -156,7 +189,10 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
               value={body}
               onChange={e => setBody(e.target.value)}
             />
-            <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>Use {'{name}'} to insert candidate name</span>
+            <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+              Use <code style={{ background: 'var(--color-bg-elevated)', padding: '1px 5px', borderRadius: 4 }}>{'{name}'}</code> for candidate name,{' '}
+              <code style={{ background: 'var(--color-bg-elevated)', padding: '1px 5px', borderRadius: 4 }}>{'{scheduling_link}'}</code> for your Calendly/scheduling URL
+            </span>
           </div>
 
           {/* Preview toggle */}
