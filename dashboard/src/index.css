@@ -791,12 +791,89 @@ select.input {
   box-shadow: 0 0 0 2px var(--gray-900);
 }
 
+/* ── Layout classes ──────────────────────────────────────────────────── */
+
+/* Mobile topbar — hidden on desktop, shown via media query */
+.mobile-topbar { display: none; }
+
+/* Mobile nav overlay — hidden on desktop */
+.mobile-nav-overlay { display: none; }
+
+/* Candidate detail 2-col grid */
+.candidate-detail-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* Import results 3-col grid */
+.import-results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────── */
 @media (max-width: 1024px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+
+@media (max-width: 900px) {
+  .candidate-detail-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 768px) {
   .page, .page-narrow { padding: 20px 16px; }
   .grid-2 { grid-template-columns: 1fr; }
   .grid-4 { grid-template-columns: 1fr 1fr; }
   .page-title { font-size: 1.5rem; }
+
+  /* Hide AI right panel entirely on mobile */
+  .right-panel { display: none !important; }
+  .panel-collapsed .app-main { margin-right: 0; }
+
+  /* Remove sidebar/panel margins — sidebar becomes a drawer */
+  .app-main {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-top: 56px;
+  }
+
+  /* Sidebar: slides off-screen by default, slides in when .nav-open */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 200;
+  }
+  .sidebar.nav-open { transform: translateX(0); }
+
+  /* Mobile topbar: fixed bar with hamburger + logo */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: var(--gray-900);
+    border-bottom: 1px solid var(--color-border);
+    padding: 0 16px;
+    z-index: 100;
+  }
+
+  /* Nav overlay backdrop */
+  .mobile-nav-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(2px);
+    z-index: 150;
+  }
+
+  /* Import results: stack to 1 col */
+  .import-results-grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 480px) { .grid-4 { grid-template-columns: 1fr; } }
+
+@media (max-width: 480px) {
+  .grid-4 { grid-template-columns: 1fr; }
+  .page, .page-narrow { padding: 16px 12px; }
+}

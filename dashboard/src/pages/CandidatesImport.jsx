@@ -172,7 +172,7 @@ export default function CandidatesImport() {
         {/* Results */}
         {result && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <div className="import-results-grid">
               <ResultCard icon={CheckCircle} color="var(--color-success)" subtle="var(--color-success-subtle)" count={result.success} label="Imported" />
               <ResultCard icon={XCircle} color="var(--color-danger)" subtle="var(--color-danger-subtle)" count={result.failed} label="Failed" />
               <ResultCard icon={AlertCircle} color="var(--color-warning)" subtle="var(--color-warning-subtle)" count={result.duplicates} label="Duplicates" />

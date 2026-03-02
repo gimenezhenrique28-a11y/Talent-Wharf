@@ -101,11 +101,11 @@ export default function CandidatesList() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select className="input" style={{ width: 180 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+        <select className="input" style={{ flex: '0 1 180px', minWidth: 120 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Statuses</option>
           {STATUS_OPTIONS.filter(Boolean).map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
-        <select className="input" style={{ width: 180 }} value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
+        <select className="input" style={{ flex: '0 1 180px', minWidth: 120 }} value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
           <option value="">All Sources</option>
           {SOURCE_OPTIONS.filter(Boolean).map(s => <option key={s} value={s}>{s}</option>)}
         </select>

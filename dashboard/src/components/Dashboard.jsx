@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Settings, FileText } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Settings, FileText, Menu } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AIPanel from './AIPanel.jsx'
 import CommandPalette from './CommandPalette.jsx'
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const location = useLocation()
   const [panelOpen, setPanelOpen] = useState(false)
+  const [navOpen, setNavOpen] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const isMounted = useRef(false)
@@ -40,6 +41,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
     setPanelOpen(false)
+    setNavOpen(false)
   }, [location.pathname])
 
   // Global keyboard shortcuts
@@ -105,8 +107,27 @@ export default function Dashboard() {
   return (
     <div className={`app-shell${panelOpen ? '' : ' panel-collapsed'}`}>
 
+      {/* ── Mobile: nav overlay ────────────────────────────────────── */}
+      {navOpen && <div className="mobile-nav-overlay" onClick={() => setNavOpen(false)} />}
+
+      {/* ── Mobile: topbar with hamburger + logo ───────────────────── */}
+      <div className="mobile-topbar">
+        <button
+          className="btn btn-ghost"
+          style={{ padding: 8 }}
+          onClick={() => setNavOpen(o => !o)}
+          aria-label="Open navigation"
+        >
+          <Menu size={20} />
+        </button>
+        <div style={{ color: 'var(--white)', flex: 1, display: 'flex', justifyContent: 'center', lineHeight: 0 }}>
+          <WharfWordmark />
+        </div>
+        <div style={{ width: 36 }} />
+      </div>
+
       {/* ── Sidebar ────────────────────────────────────────────────── */}
-      <aside className="sidebar">
+      <aside className={`sidebar${navOpen ? ' nav-open' : ''}`}>
         {/* Logo */}
         <div className="sidebar-logo">
           <div style={{ color: 'var(--white)', lineHeight: 0 }}>
@@ -127,7 +148,7 @@ export default function Dashboard() {
           ].map(({ to, icon: Icon, label, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) =>
               `sidebar-nav-item${isActive ? ' active' : ''}`
-            }>
+            } onClick={() => setNavOpen(false)}>
               <Icon size={16} />
               <span>{label}</span>
             </NavLink>

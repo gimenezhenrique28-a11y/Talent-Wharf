@@ -326,7 +326,7 @@ export default function CandidateDetail() {
       </div>
 
       {/* Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 20, alignItems: 'start' }}>
+      <div className="candidate-detail-grid">
 
         {/* LEFT: Profile card + GitHub card */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -528,11 +528,6 @@ export default function CandidateDetail() {
         <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />
       )}
 
-      <style>{`
-        @media (max-width: 900px) {
-          .detail-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   )
 }
