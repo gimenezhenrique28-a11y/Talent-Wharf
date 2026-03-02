@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "remotion",
+      "runtimeExecutable": "/c/Program Files/nodejs/npm",
+      "runtimeArgs": ["start"],
+      "port": 3000
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "C:/Program Files/nodejs/node",
+      "runtimeArgs": ["C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js", "run", "dev", "--", "--port", "5173"],
+      "cwd": "C:/Users/henrique/Desktop/Wharf - Production/dashboard",
+      "port": 5173
+    }
+  ]
+}

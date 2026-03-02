@@ -9,6 +9,7 @@ import { CSVImportVideo } from "./videos/CSVImportVideo";
 import { ExtensionLinkedInVideo } from "./videos/ExtensionLinkedInVideo";
 import { ExtensionGmailVideo } from "./videos/ExtensionGmailVideo";
 import { FullDemoVideo } from "./videos/FullDemoVideo";
+import { BeliefDemoVideo } from "./BeliefDemoVideo";
 
 const W = 437;
 const H = 797;
@@ -18,6 +19,16 @@ const DUR = 120; // 4 seconds at 30fps
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      {/* 29s belief demo — 4:3 (1024x768) dopamine spike */}
+      <Composition
+        id="BeliefDemo"
+        component={BeliefDemoVideo}
+        durationInFrames={870}
+        fps={FPS}
+        width={1024}
+        height={768}
+      />
+
       {/* 15s full demo — 4:3 */}
       <Composition
         id="FullDemo"
