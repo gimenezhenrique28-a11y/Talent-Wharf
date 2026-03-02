@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Send, Eye, Mail } from 'lucide-react'
+import { X, Send, Eye, Mail, CalendarPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { generateICS, parseDateTime } from '../lib/ics.js'
 
 const TEMPLATES = {
   '': { name: 'Custom Email (blank)', subject: '', body: '' },
@@ -46,6 +47,27 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
   const [error, setError] = useState('')
 
   const tpl = TEMPLATES[templateId]
+
+  function handleDownloadICS() {
+    const date = vars.date ?? ''
+    const time = vars.time ?? ''
+    const dtstart = parseDateTime(date, time)
+    if (!dtstart) {
+      alert('Fill in the date and time variables first to download an invite.')
+      return
+    }
+    const durationMin = vars.duration ? parseInt(vars.duration) : 60
+    const dtend = new Date(dtstart.getTime() + (isNaN(durationMin) ? 60 : durationMin) * 60000)
+    const position = vars.position ?? 'Interview'
+    const company  = vars.company  ?? ''
+    generateICS({
+      summary:  `${position}${company ? ' at ' + company : ''}`,
+      description: substituteVars(body),
+      location: vars.location ?? '',
+      dtstart,
+      dtend,
+    })
+  }
 
   // ── Load scheduling link from profile on mount ────────────────────────────
   useEffect(() => {
@@ -209,8 +231,17 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px', borderTop: '1px solid var(--color-border)', flexShrink: 0, flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          {templateId === 'interview_invite' && (
+            <button
+              className="btn btn-secondary"
+              onClick={handleDownloadICS}
+              title={!vars.date ? 'Fill in date and time first' : 'Download calendar invite'}
+            >
+              <CalendarPlus size={15} /> Download .ics
+            </button>
+          )}
           <button className="btn btn-primary" onClick={handleSend} disabled={sending || !subject.trim() || !body.trim()}>
             {sending ? <><div className="spinner" /> Sending...</> : <><Send size={15} /> Send Email</>}
           </button>

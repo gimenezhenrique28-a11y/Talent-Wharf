@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, Upload, CheckCircle, MapPin, Building2, Globe, Users } from 'lucide-react'
+import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, Upload, CheckCircle, MapPin, Building2, Globe, Users, ClipboardList, CalendarPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { format, formatDistanceToNow } from 'date-fns'
 import EmailComposer from '../components/EmailComposer.jsx'
+import { generateICS, parseDateTime } from '../lib/ics.js'
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 
@@ -64,11 +65,22 @@ export default function CandidateDetail() {
     setToast({ message, type })
   }
 
+  // Scorecards
+  const [feedback, setFeedback] = useState([])
+  const [scoreFormOpen, setScoreFormOpen] = useState(false)
+  const [scoreForm, setScoreForm] = useState({ overall_rating: 0, skills_rating: 0, culture_rating: 0, recommendation: '', notes: '' })
+  const [scoreSaving, setScoreSaving] = useState(false)
+
+  // Schedule / iCal
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [scheduleForm, setScheduleForm] = useState({ date: '', time: '10:00', duration: 60, location: '', notes: '' })
+
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [{ data: c }, { data: n }] = await Promise.all([
+    const [{ data: c }, { data: n }, { data: fb }] = await Promise.all([
       supabase.from('candidates').select('*').eq('id', id).single(),
       supabase.from('candidate_notes').select('*, users(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
+      supabase.from('candidate_feedback').select('*, profiles(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
     ])
     setCandidate(c)
     setEditForm({
@@ -82,6 +94,7 @@ export default function CandidateDetail() {
       skills: Array.isArray(c?.skills) ? c.skills.join(', ') : '',
     })
     setNotes(n ?? [])
+    setFeedback(fb ?? [])
     setLoading(false)
   }, [id])
 
@@ -151,6 +164,50 @@ export default function CandidateDetail() {
     setAddingNote(false)
     const { data } = await supabase.from('candidate_notes').select('*, users(name)').eq('candidate_id', id).order('created_at', { ascending: false })
     setNotes(data ?? [])
+  }
+
+  // ── Scorecards ─────────────────────────────────────────────────────────────
+
+  async function handleAddScore() {
+    if (scoreForm.overall_rating === 0) { showToast('Please set an overall rating', 'error'); return }
+    setScoreSaving(true)
+    const { data: prof } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
+    const { error } = await supabase.from('candidate_feedback').insert({
+      candidate_id: id,
+      user_id: user.id,
+      org_id: prof.org_id,
+      overall_rating: scoreForm.overall_rating,
+      skills_rating: scoreForm.skills_rating || null,
+      culture_rating: scoreForm.culture_rating || null,
+      recommendation: scoreForm.recommendation || null,
+      notes: scoreForm.notes || null,
+    })
+    if (error) { showToast(error.message, 'error') }
+    else {
+      setScoreFormOpen(false)
+      setScoreForm({ overall_rating: 0, skills_rating: 0, culture_rating: 0, recommendation: '', notes: '' })
+      showToast('Scorecard saved')
+      fetchData()
+    }
+    setScoreSaving(false)
+  }
+
+  // ── Schedule / iCal ────────────────────────────────────────────────────────
+
+  function handleDownloadICS() {
+    const dtstart = parseDateTime(scheduleForm.date, scheduleForm.time)
+    if (!dtstart) { showToast('Please enter a valid date and time', 'error'); return }
+    const dtend = new Date(dtstart.getTime() + scheduleForm.duration * 60000)
+    const { data: session } = supabase.auth.getSession()
+    generateICS({
+      summary: `Interview: ${candidate.name}`,
+      description: scheduleForm.notes || `Interview with ${candidate.name}`,
+      location: scheduleForm.location,
+      dtstart,
+      dtend,
+    })
+    setScheduleOpen(false)
+    showToast('Calendar invite downloaded')
   }
 
   // ── GitHub Enrichment ──────────────────────────────────────────────────────
@@ -302,6 +359,10 @@ export default function CandidateDetail() {
           {parseCvLoading
             ? <><div className="spinner" /> Parsing...</>
             : <><Upload size={14} /> Parse CV</>}
+        </button>
+
+        <button className="btn btn-secondary btn-sm" onClick={() => setScheduleOpen(true)}>
+          <CalendarPlus size={14} /> Schedule
         </button>
 
         <button className="btn btn-secondary btn-sm" onClick={() => setEmailOpen(true)}>
@@ -513,8 +574,143 @@ export default function CandidateDetail() {
               </div>
             )}
           </div>
+
+          {/* Scorecards */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <ClipboardList size={18} color="var(--color-accent)" />
+              <h3 style={{ fontWeight: 600 }}>Scorecards ({feedback.length})</h3>
+              <div style={{ flex: 1 }} />
+              <button className="btn btn-secondary btn-sm" onClick={() => setScoreFormOpen(o => !o)}>
+                {scoreFormOpen ? 'Cancel' : '+ Add Scorecard'}
+              </button>
+            </div>
+
+            {scoreFormOpen && (
+              <div style={{ background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Overall Rating *</div>
+                    <StarRating value={scoreForm.overall_rating} onChange={v => setScoreForm(p => ({ ...p, overall_rating: v }))} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Skills Rating</div>
+                    <StarRating value={scoreForm.skills_rating} onChange={v => setScoreForm(p => ({ ...p, skills_rating: v }))} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Culture Fit</div>
+                    <StarRating value={scoreForm.culture_rating} onChange={v => setScoreForm(p => ({ ...p, culture_rating: v }))} />
+                  </div>
+                  <div>
+                    <label className="input-label">Recommendation</label>
+                    <select className="input" value={scoreForm.recommendation} onChange={e => setScoreForm(p => ({ ...p, recommendation: e.target.value }))}>
+                      <option value="">— select —</option>
+                      <option value="strong_yes">Strong Yes</option>
+                      <option value="yes">Yes</option>
+                      <option value="maybe">Maybe</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="input-label">Notes</label>
+                    <textarea className="input" rows={3} value={scoreForm.notes} onChange={e => setScoreForm(p => ({ ...p, notes: e.target.value }))} placeholder="Interview notes..." />
+                  </div>
+                  <button className="btn btn-primary" onClick={handleAddScore} disabled={scoreSaving}>
+                    {scoreSaving ? <><div className="spinner" /> Saving...</> : 'Save Scorecard'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {feedback.length === 0 && !scoreFormOpen && (
+              <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>No scorecards yet. Add one after an interview.</p>
+            )}
+
+            {feedback.map(fb => (
+              <div key={fb.id} style={{ background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{fb.profiles?.name ?? 'Unknown'}</span>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                    {formatDistanceToNow(new Date(fb.created_at), { addSuffix: true })}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', width: 80 }}>Overall</span>
+                    <StarRating value={fb.overall_rating} readOnly />
+                  </div>
+                  {fb.skills_rating > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', width: 80 }}>Skills</span>
+                      <StarRating value={fb.skills_rating} readOnly />
+                    </div>
+                  )}
+                  {fb.culture_rating > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', width: 80 }}>Culture</span>
+                      <StarRating value={fb.culture_rating} readOnly />
+                    </div>
+                  )}
+                  {fb.recommendation && (
+                    <div style={{ marginTop: 4 }}>
+                      <RecommendationBadge value={fb.recommendation} />
+                    </div>
+                  )}
+                  {fb.notes && (
+                    <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 6, lineHeight: 1.6 }}>{fb.notes}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
         </div>
       </div>
+
+      {/* Schedule modal */}
+      {scheduleOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div className="card" style={{ width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <CalendarPlus size={18} color="var(--color-accent)" />
+              <h3 style={{ fontWeight: 600 }}>Schedule Interview</h3>
+              <div style={{ flex: 1 }} />
+              <button className="btn btn-ghost btn-sm" onClick={() => setScheduleOpen(false)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="input-group">
+                <label className="input-label">Date *</label>
+                <input className="input" type="date" value={scheduleForm.date} onChange={e => setScheduleForm(p => ({ ...p, date: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Time *</label>
+                <input className="input" type="time" value={scheduleForm.time} onChange={e => setScheduleForm(p => ({ ...p, time: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Duration</label>
+                <select className="input" value={scheduleForm.duration} onChange={e => setScheduleForm(p => ({ ...p, duration: Number(e.target.value) }))}>
+                  <option value={30}>30 minutes</option>
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={90}>1.5 hours</option>
+                  <option value={120}>2 hours</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Location / Link</label>
+                <input className="input" value={scheduleForm.location} onChange={e => setScheduleForm(p => ({ ...p, location: e.target.value }))} placeholder="Zoom, Google Meet, or office address" />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Notes</label>
+                <textarea className="input" rows={3} value={scheduleForm.notes} onChange={e => setScheduleForm(p => ({ ...p, notes: e.target.value }))} placeholder="Additional details..." />
+              </div>
+              <button className="btn btn-primary" onClick={handleDownloadICS}>
+                <CalendarPlus size={14} /> Download .ics Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {emailOpen && (
         <EmailComposer
@@ -529,6 +725,40 @@ export default function CandidateDetail() {
       )}
 
     </div>
+  )
+}
+
+// ── Star Rating ───────────────────────────────────────────────────────────────
+
+function StarRating({ value, onChange, readOnly = false }) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <span
+          key={n}
+          style={{ fontSize: 20, lineHeight: 1, cursor: readOnly ? 'default' : 'pointer', color: n <= value ? '#f59e0b' : 'var(--color-border)' }}
+          onClick={() => !readOnly && onChange(n)}
+        >★</span>
+      ))}
+    </div>
+  )
+}
+
+// ── Recommendation Badge ──────────────────────────────────────────────────────
+
+const REC_COLORS = {
+  strong_yes: { bg: '#052e16', text: '#4ade80', label: 'Strong Yes' },
+  yes:        { bg: '#1c3829', text: '#86efac', label: 'Yes' },
+  maybe:      { bg: '#2d2608', text: '#fbbf24', label: 'Maybe' },
+  no:         { bg: '#2d1515', text: '#f87171', label: 'No' },
+}
+
+function RecommendationBadge({ value }) {
+  const s = REC_COLORS[value] ?? { bg: 'var(--color-bg-elevated)', text: 'var(--color-text-secondary)', label: value }
+  return (
+    <span style={{ background: s.bg, color: s.text, padding: '2px 10px', borderRadius: 100, fontSize: 12, fontWeight: 600 }}>
+      {s.label}
+    </span>
   )
 }
 

@@ -12,6 +12,7 @@ import CandidatesImport from './pages/CandidatesImport.jsx'
 import Analytics from './pages/Analytics.jsx'
 import Settings from './pages/Settings.jsx'
 import EmailTemplates from './pages/EmailTemplates.jsx'
+import Pipeline from './pages/Pipeline.jsx'
 
 function App() {
   const { loading } = useAuth()
@@ -38,6 +39,7 @@ function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
           <Route path="templates" element={<EmailTemplates />} />
+          <Route path="pipeline" element={<Pipeline />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

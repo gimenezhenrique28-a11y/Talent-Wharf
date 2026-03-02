@@ -25,7 +25,7 @@ export default function Analytics() {
   )
 
   /* ── Pipeline funnel ── */
-  const statusOrder = ['new', 'contacted', 'screening', 'interviewing', 'offered', 'hired']
+  const statusOrder = ['new', 'contacted', 'interviewing', 'hired', 'rejected']
   const statusCounts = statusOrder.map(s => ({
     status: s,
     count: candidates.filter(c => c.status === s).length,

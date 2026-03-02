@@ -41,11 +41,15 @@ export default function Settings() {
   const [savingCalendly, setSavingCalendly] = useState(false)
 
   // Slack
-  const [slackUrl, setSlackUrl]           = useState('')
-  const [slackEvents, setSlackEvents]     = useState(['candidate.created', 'candidate.status_changed'])
-  const [slackId, setSlackId]             = useState(null)
-  const [savingSlack, setSavingSlack]     = useState(false)
-  const [showSlackUrl, setShowSlackUrl]   = useState(false)
+  const [slackUrl, setSlackUrl]                       = useState('')
+  const [slackEvents, setSlackEvents]                 = useState(['candidate.created', 'candidate.status_changed'])
+  const [slackId, setSlackId]                         = useState(null)
+  const [savingSlack, setSavingSlack]                 = useState(false)
+  const [showSlackUrl, setShowSlackUrl]               = useState(false)
+  const [slackSigningSecret, setSlackSigningSecret]   = useState('')
+  const [showSigningSecret, setShowSigningSecret]     = useState(false)
+  const [savingSigningSecret, setSavingSigningSecret] = useState(false)
+  const [copiedSlashUrl, setCopiedSlashUrl]           = useState(false)
 
   // Generic webhooks
   const [webhooks, setWebhooks]   = useState([])
@@ -78,11 +82,10 @@ export default function Settings() {
 
   async function loadWebhooks() {
     if (!profile?.org_id) return
-    const { data } = await supabase
-      .from('webhooks')
-      .select('id, name, url, type, events, active, created_at')
-      .eq('org_id', profile.org_id)
-      .order('created_at', { ascending: true })
+    const [{ data }, { data: org }] = await Promise.all([
+      supabase.from('webhooks').select('id, name, url, type, events, active, created_at').eq('org_id', profile.org_id).order('created_at', { ascending: true }),
+      supabase.from('organizations').select('slack_signing_secret').eq('id', profile.org_id).single(),
+    ])
     const all = data ?? []
     const slack = all.find(w => w.type === 'slack')
     if (slack) {
@@ -91,6 +94,7 @@ export default function Settings() {
       setSlackId(slack.id)
     }
     setWebhooks(all.filter(w => w.type !== 'slack'))
+    if (org?.slack_signing_secret) setSlackSigningSecret(org.slack_signing_secret)
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -176,6 +180,21 @@ export default function Settings() {
 
   function toggleSlackEvent(ev) {
     setSlackEvents(prev => prev.includes(ev) ? prev.filter(e => e !== ev) : [...prev, ev])
+  }
+
+  async function handleSaveSigningSecret() {
+    if (!profile?.org_id) return
+    setSavingSigningSecret(true)
+    const { error } = await supabase.from('organizations').update({ slack_signing_secret: slackSigningSecret.trim() || null }).eq('id', profile.org_id)
+    setSavingSigningSecret(false)
+    if (error) { toast(error.message, 'error'); return }
+    toast('Signing secret saved')
+  }
+
+  async function copySlashUrl(text) {
+    await navigator.clipboard.writeText(text).catch(() => {})
+    setCopiedSlashUrl(true)
+    setTimeout(() => setCopiedSlashUrl(false), 2000)
   }
 
   // ── Generic Webhooks ──────────────────────────────────────────────────────
@@ -393,6 +412,75 @@ export default function Settings() {
             {savingSlack ? <><div className="spinner" /> Saving…</> : <><Save size={14} /> Save Slack Config</>}
           </button>
           {slackId && <div style={{ marginTop: 10, fontSize: 12, color: 'var(--color-text-tertiary)' }}>✓ Slack integration active</div>}
+
+          {/* Slash Commands subsection */}
+          <div style={{ marginTop: 28, paddingTop: 24, borderTop: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>Slash Commands</span>
+              <span style={{ fontSize: 11, background: 'var(--color-bg-elevated)', color: 'var(--color-text-tertiary)', padding: '1px 8px', borderRadius: 100 }}>beta</span>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 16 }}>
+              Enable <code style={{ fontFamily: 'monospace', fontSize: 12 }}>/wharf</code> commands in Slack to query your pipeline, search candidates, and add new ones from any channel.
+            </p>
+
+            {/* Signing secret */}
+            <div className="input-group" style={{ marginBottom: 14 }}>
+              <label className="input-label">Slack Signing Secret</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="input"
+                  type={showSigningSecret ? 'text' : 'password'}
+                  placeholder="Paste from Slack App → Basic Information"
+                  value={slackSigningSecret}
+                  onChange={e => setSlackSigningSecret(e.target.value)}
+                  style={{ flex: 1, fontFamily: slackSigningSecret ? 'monospace' : undefined, fontSize: slackSigningSecret ? 12 : undefined }}
+                />
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowSigningSecret(v => !v)} style={{ flexShrink: 0 }}>
+                  {showSigningSecret ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={handleSaveSigningSecret} disabled={savingSigningSecret} style={{ marginBottom: 16 }}>
+              {savingSigningSecret ? <><div className="spinner" /> Saving…</> : <><Save size={14} /> Save Secret</>}
+            </button>
+
+            {/* Slash command URL */}
+            {profile?.org_id && (
+              <div className="input-group" style={{ marginBottom: 16 }}>
+                <label className="input-label">Your Slash Command URL</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="input"
+                    readOnly
+                    value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/slack-slash?org=${profile.org_id}`}
+                    style={{ flex: 1, fontFamily: 'monospace', fontSize: 11 }}
+                  />
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => copySlashUrl(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/slack-slash?org=${profile.org_id}`)}
+                    style={{ flexShrink: 0 }}
+                  >
+                    {copiedSlashUrl ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Setup steps */}
+            <div style={{ background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Setup steps</div>
+              <ol style={{ fontSize: 13, color: 'var(--color-text-secondary)', paddingLeft: 18, lineHeight: 1.8, margin: 0 }}>
+                <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent)' }}>api.slack.com/apps</a> → create or open your Wharf app</li>
+                <li>Under <strong>Slash Commands</strong>, create <code style={{ fontFamily: 'monospace' }}>/wharf</code></li>
+                <li>Paste the URL above as the Request URL</li>
+                <li>Copy the <strong>Signing Secret</strong> from Basic Information and paste it above</li>
+                <li>Install the app to your workspace — done!</li>
+              </ol>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 12 }}>
+                Commands: <code style={{ fontFamily: 'monospace' }}>/wharf pipeline</code> · <code style={{ fontFamily: 'monospace' }}>/wharf search [name]</code> · <code style={{ fontFamily: 'monospace' }}>/wharf add [name] [email]</code>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Webhooks */}

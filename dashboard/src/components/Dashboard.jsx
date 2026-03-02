@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Settings, FileText, Menu } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Settings, FileText, Menu, Kanban } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AIPanel from './AIPanel.jsx'
 import CommandPalette from './CommandPalette.jsx'
@@ -140,6 +140,7 @@ export default function Dashboard() {
           {[
             { to: '/', icon: Home, label: 'Home', end: true },
             { to: '/candidates', icon: Users, label: 'All Candidates' },
+            { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
             { to: '/candidates/new', icon: UserPlus, label: 'Add Candidate' },
             { to: '/candidates/import', icon: Upload, label: 'Import CSV' },
             { to: '/analytics', icon: BarChart2, label: 'Analytics' },
