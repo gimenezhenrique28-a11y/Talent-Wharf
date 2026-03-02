@@ -100,7 +100,7 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 24px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--color-accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Mail size={18} color="white" />
           </div>
           <div style={{ flex: 1 }}>

@@ -9,6 +9,9 @@ import CandidatesList from './pages/CandidatesList.jsx'
 import CandidateForm from './pages/CandidateForm.jsx'
 import CandidateDetail from './pages/CandidateDetail.jsx'
 import CandidatesImport from './pages/CandidatesImport.jsx'
+import Analytics from './pages/Analytics.jsx'
+import Settings from './pages/Settings.jsx'
+import EmailTemplates from './pages/EmailTemplates.jsx'
 
 function App() {
   const { loading } = useAuth()
@@ -32,6 +35,9 @@ function App() {
           <Route path="candidates/new" element={<CandidateForm />} />
           <Route path="candidates/import" element={<CandidatesImport />} />
           <Route path="candidates/:id" element={<CandidateDetail />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="templates" element={<EmailTemplates />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

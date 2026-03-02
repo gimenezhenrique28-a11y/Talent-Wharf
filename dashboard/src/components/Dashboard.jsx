@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, LogOut } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Settings, FileText } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AIPanel from './AIPanel.jsx'
+import CommandPalette from './CommandPalette.jsx'
+import ShortcutsModal from './ShortcutsModal.jsx'
 
 /* Official TalentWharf SVG wordmark — tight viewBox crops to just the letterforms */
 function WharfWordmark() {
@@ -31,12 +33,65 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const location = useLocation()
   const [panelOpen, setPanelOpen] = useState(false)
+  const [cmdOpen, setCmdOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const isMounted = useRef(false)
 
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
     setPanelOpen(false)
   }, [location.pathname])
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    let gPending = false
+    let gTimer = null
+
+    function handleKeyDown(e) {
+      const tag = e.target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+
+      // Cmd+K / Ctrl+K — command palette
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setCmdOpen(o => !o)
+        return
+      }
+
+      // Cmd+N / Ctrl+N — new candidate
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault()
+        navigate('/candidates/new')
+        return
+      }
+
+      // ? — shortcuts modal
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
+        setShortcutsOpen(true)
+        return
+      }
+
+      // G → * navigation
+      if (gPending) {
+        clearTimeout(gTimer)
+        gPending = false
+        const dest = { h: '/', c: '/candidates', a: '/analytics', s: '/settings' }[e.key.toLowerCase()]
+        if (dest) { e.preventDefault(); navigate(dest) }
+        return
+      }
+
+      if (e.key === 'g' && !e.metaKey && !e.ctrlKey) {
+        gPending = true
+        gTimer = setTimeout(() => { gPending = false }, 1000)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      clearTimeout(gTimer)
+    }
+  }, [navigate])
 
   async function handleSignOut() {
     await signOut()
@@ -66,6 +121,9 @@ export default function Dashboard() {
             { to: '/candidates', icon: Users, label: 'All Candidates' },
             { to: '/candidates/new', icon: UserPlus, label: 'Add Candidate' },
             { to: '/candidates/import', icon: Upload, label: 'Import CSV' },
+            { to: '/analytics', icon: BarChart2, label: 'Analytics' },
+            { to: '/templates', icon: FileText, label: 'Email Templates' },
+            { to: '/settings', icon: Settings, label: 'Settings' },
           ].map(({ to, icon: Icon, label, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) =>
               `sidebar-nav-item${isActive ? ' active' : ''}`
@@ -102,6 +160,12 @@ export default function Dashboard() {
 
       {/* ── AI Insights right panel ───────────────────────── */}
       <AIPanel open={panelOpen} onToggle={() => setPanelOpen(o => !o)} />
+
+      {/* ── Command palette ───────────────────────────────── */}
+      {cmdOpen && <CommandPalette onClose={() => setCmdOpen(false)} />}
+
+      {/* ── Keyboard shortcuts modal ──────────────────────── */}
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
 
     </div>
   )
