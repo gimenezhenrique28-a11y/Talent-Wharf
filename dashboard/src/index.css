@@ -380,7 +380,7 @@ select.input {
   transition: margin-right 0.22s ease;
 }
 .panel-collapsed .app-main {
-  margin-right: var(--right-panel-collapsed-width);
+  margin-right: 0;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────── */
