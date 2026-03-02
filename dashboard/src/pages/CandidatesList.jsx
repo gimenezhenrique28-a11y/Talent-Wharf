@@ -120,7 +120,7 @@ export default function CandidatesList() {
           borderRadius: 'var(--radius-md)',
           padding: '10px 16px',
           marginBottom: 16,
-          boxShadow: '0 0 20px rgba(254,94,0,0.15)',
+          boxShadow: '0 0 0 1px var(--color-border-strong)',
         }}>
           <span style={{ color: 'var(--color-accent)', fontWeight: 600, flex: 1 }}>{selected.size} selected</span>
           <button className="btn btn-primary btn-sm" onClick={() => setEmailOpen(true)}>

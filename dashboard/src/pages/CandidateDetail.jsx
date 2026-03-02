@@ -138,9 +138,10 @@ export default function CandidateDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
               <div style={{
                 width: 72, height: 72, borderRadius: '50%',
-                background: 'var(--color-accent-gradient)',
+                background: 'var(--gray-700)',
+                border: '1px solid var(--color-border-strong)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24, fontWeight: 700, color: '#fff', marginBottom: 12,
+                fontSize: 24, fontWeight: 700, color: 'var(--gray-200)', marginBottom: 12,
               }}>{initials}</div>
 
               {editing ? (
@@ -247,13 +248,13 @@ export default function CandidateDetail() {
                 {experience.map((exp, i) => (
                   <div key={i} style={{ display: 'flex', gap: 16, paddingBottom: i < experience.length - 1 ? 24 : 0 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-accent)', boxShadow: '0 0 8px rgba(254,94,0,0.5)', flexShrink: 0, marginTop: 4 }} />
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gray-400)', flexShrink: 0, marginTop: 5 }} />
                       {i < experience.length - 1 && <div style={{ width: 2, flex: 1, background: 'var(--color-border)', marginTop: 6 }} />}
                     </div>
                     <div style={{ paddingBottom: 8 }}>
                       <div style={{ fontSize: 15, fontWeight: 700 }}>{exp.title}</div>
-                      {exp.company && <div style={{ fontSize: 14, color: 'var(--color-accent-light)', marginTop: 2 }}>{exp.company}</div>}
-                      {exp.duration && <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{exp.duration}</div>}
+                      {exp.company && <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginTop: 2 }}>{exp.company}</div>}
+                      {(exp.start || exp.end) && <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{[exp.start, exp.end].filter(Boolean).join(' – ')}</div>}
                       {exp.description && <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 6 }}>{exp.description}</div>}
                     </div>
                   </div>
