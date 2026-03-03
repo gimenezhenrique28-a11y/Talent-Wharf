@@ -420,7 +420,7 @@ export default function CandidateDetail() {
               <div className="input-label" style={{ marginBottom: 6 }}>Status</div>
               {editing ? (
                 <select className="input" value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}>
-                  {['new', 'contacted', 'interviewing', 'hired', 'rejected'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {['new', 'screening', 'interviewing', 'offered', 'hired', 'rejected', 'archived'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               ) : (
                 <span className={`badge badge-${candidate.status}`}>{candidate.status}</span>

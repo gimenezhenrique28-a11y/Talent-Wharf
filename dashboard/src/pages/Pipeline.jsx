@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 
 const COLUMNS = [
   { status: 'new',          label: 'New',          color: 'var(--color-text-tertiary)' },
-  { status: 'contacted',    label: 'Contacted',    color: '#60a5fa' },
+  { status: 'screening',    label: 'Screening',    color: '#60a5fa' },
   { status: 'interviewing', label: 'Interviewing', color: '#f59e0b' },
   { status: 'hired',        label: 'Hired',        color: 'var(--color-success)' },
   { status: 'rejected',     label: 'Rejected',     color: 'var(--color-danger)' },

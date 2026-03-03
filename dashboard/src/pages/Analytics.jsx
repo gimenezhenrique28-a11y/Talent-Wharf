@@ -25,11 +25,11 @@ export default function Analytics() {
   )
 
   /* ── Pipeline funnel ── */
-  const statusOrder = ['new', 'contacted', 'interviewing', 'hired', 'rejected']
+  const statusOrder = ['new', 'screening', 'interviewing', 'offered', 'hired', 'rejected']
   const statusCounts = statusOrder.map(s => ({
     status: s,
     count: candidates.filter(c => c.status === s).length,
-  })).filter(x => x.count > 0 || ['new', 'interviewing', 'hired'].includes(x.status))
+  })).filter(x => x.count > 0 || ['new', 'screening', 'interviewing', 'hired'].includes(x.status))
   const maxStatus = Math.max(...statusCounts.map(x => x.count), 1)
 
   /* ── Source breakdown ── */

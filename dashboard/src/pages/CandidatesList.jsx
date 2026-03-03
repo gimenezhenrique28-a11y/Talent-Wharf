@@ -7,8 +7,8 @@ import EmailComposer from '../components/EmailComposer.jsx'
 
 const PAGE_SIZE = 20
 
-const STATUS_OPTIONS = ['', 'new', 'contacted', 'interviewing', 'hired', 'rejected']
-const SOURCE_OPTIONS = ['', 'LinkedIn', 'Gmail', 'Manual', 'CSV Import', 'Extension']
+const STATUS_OPTIONS = ['', 'new', 'screening', 'interviewing', 'offered', 'hired', 'rejected', 'archived']
+const SOURCE_OPTIONS = ['', 'LinkedIn', 'Gmail', 'Manual', 'CSV Import', 'Extension', 'API']
 
 export default function CandidatesList() {
   const navigate = useNavigate()
