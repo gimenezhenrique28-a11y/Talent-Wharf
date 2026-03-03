@@ -142,7 +142,7 @@ export default function Pipeline() {
   return (
     <div className="page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+      <div className="page-header">
         <div>
           <h1 className="page-title">Pipeline</h1>
           <p className="page-subtitle">{candidates.length} candidate{candidates.length !== 1 ? 's' : ''} — drag to change status</p>

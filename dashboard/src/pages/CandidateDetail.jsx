@@ -1,37 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, Upload, CheckCircle, MapPin, Building2, Globe, Users, ClipboardList, CalendarPlus } from 'lucide-react'
+import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, Upload, MapPin, Building2, Globe, Users, ClipboardList, CalendarPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import { useToast } from '../contexts/ToastContext.jsx'
 import { format, formatDistanceToNow } from 'date-fns'
 import EmailComposer from '../components/EmailComposer.jsx'
 import { generateICS, parseDateTime } from '../lib/ics.js'
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-
-function Toast({ message, type, onDismiss }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 4000)
-    return () => clearTimeout(t)
-  }, [onDismiss])
-
-  return (
-    <div style={{
-      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
-      background: type === 'error' ? '#2d1515' : 'var(--color-bg-elevated)',
-      border: `1px solid ${type === 'error' ? '#7d2020' : 'var(--color-border-strong)'}`,
-      borderRadius: 'var(--radius-md)',
-      padding: '12px 18px',
-      display: 'flex', alignItems: 'center', gap: 10,
-      fontSize: 14, fontWeight: 500,
-      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-      maxWidth: 420,
-    }}>
-      <CheckCircle size={16} color={type === 'error' ? '#e57373' : 'var(--color-accent)'} />
-      <span style={{ color: type === 'error' ? '#e57373' : 'var(--color-text-primary)' }}>{message}</span>
-    </div>
-  )
-}
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -39,6 +14,7 @@ export default function CandidateDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { toast } = useToast()
   const cvFileRef = useRef(null)
 
   const [candidate, setCandidate] = useState(null)
@@ -58,12 +34,6 @@ export default function CandidateDetail() {
   const [githubData, setGithubData] = useState(null)
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubError, setGithubError] = useState('')
-
-  // Toast
-  const [toast, setToast] = useState(null)
-  function showToast(message, type = 'success') {
-    setToast({ message, type })
-  }
 
   // Scorecards
   const [feedback, setFeedback] = useState([])
@@ -169,7 +139,7 @@ export default function CandidateDetail() {
   // ── Scorecards ─────────────────────────────────────────────────────────────
 
   async function handleAddScore() {
-    if (scoreForm.overall_rating === 0) { showToast('Please set an overall rating', 'error'); return }
+    if (scoreForm.overall_rating === 0) { toast('Please set an overall rating', 'error'); return }
     setScoreSaving(true)
     const { data: prof } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     const { error } = await supabase.from('candidate_feedback').insert({
@@ -182,11 +152,11 @@ export default function CandidateDetail() {
       recommendation: scoreForm.recommendation || null,
       notes: scoreForm.notes || null,
     })
-    if (error) { showToast(error.message, 'error') }
+    if (error) { toast(error.message, 'error') }
     else {
       setScoreFormOpen(false)
       setScoreForm({ overall_rating: 0, skills_rating: 0, culture_rating: 0, recommendation: '', notes: '' })
-      showToast('Scorecard saved')
+      toast('Scorecard saved')
       fetchData()
     }
     setScoreSaving(false)
@@ -196,9 +166,8 @@ export default function CandidateDetail() {
 
   function handleDownloadICS() {
     const dtstart = parseDateTime(scheduleForm.date, scheduleForm.time)
-    if (!dtstart) { showToast('Please enter a valid date and time', 'error'); return }
+    if (!dtstart) { toast('Please enter a valid date and time', 'error'); return }
     const dtend = new Date(dtstart.getTime() + scheduleForm.duration * 60000)
-    const { data: session } = supabase.auth.getSession()
     generateICS({
       summary: `Interview: ${candidate.name}`,
       description: scheduleForm.notes || `Interview with ${candidate.name}`,
@@ -207,7 +176,7 @@ export default function CandidateDetail() {
       dtend,
     })
     setScheduleOpen(false)
-    showToast('Calendar invite downloaded')
+    toast('Calendar invite downloaded')
   }
 
   // ── GitHub Enrichment ──────────────────────────────────────────────────────
@@ -295,13 +264,13 @@ export default function CandidateDetail() {
       if (res.error) throw new Error(res.error.message)
       const updated = res.data?.updated ?? []
       if (updated.length > 0) {
-        showToast(`CV parsed — updated: ${updated.join(', ')}`)
+        toast(`CV parsed — updated: ${updated.join(', ')}`)
       } else {
-        showToast('CV parsed — all fields were already filled')
+        toast('CV parsed — all fields were already filled')
       }
       fetchData()
     } catch (err) {
-      showToast(err?.message ?? 'Failed to parse CV', 'error')
+      toast(err?.message ?? 'Failed to parse CV', 'error')
     }
     setParseCvLoading(false)
   }
@@ -718,10 +687,6 @@ export default function CandidateDetail() {
           onClose={() => setEmailOpen(false)}
           onSent={() => setEmailOpen(false)}
         />
-      )}
-
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />
       )}
 
     </div>

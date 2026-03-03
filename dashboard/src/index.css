@@ -57,6 +57,28 @@
   --ls-body:     -0.011em;
   --ls-label:    -0.006em;
 
+  /* Spacing scale — 8px grid */
+  --sp-1:   4px;
+  --sp-2:   8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* Text scale */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 14px;
+  --text-md:   15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  32px;
+
   /* Shadows — used sparingly */
   --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.25);
   --shadow-card:   0 1px 3px rgba(0, 0, 0, 0.4);
@@ -359,6 +381,45 @@ select.input {
 
 /* ── Divider ─────────────────────────────────────────────────────────── */
 .divider { border: none; border-top: 1px solid var(--color-border); margin: 0; }
+
+/* ── Analytics bars ──────────────────────────────────────────────────── */
+.analytics-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.analytics-bar-row:last-child { margin-bottom: 0; }
+.analytics-bar-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  width: 90px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+}
+.analytics-bar-track {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.analytics-bar-fill {
+  height: 100%;
+  background: var(--gray-500);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.analytics-bar-count {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
 
 /* ── CSS Variables: Sidebar & Panels ─────────────────────────────────── */
 :root {
@@ -862,7 +923,7 @@ select.input {
 /* Candidate detail 2-col grid */
 .candidate-detail-grid {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 320px 1fr;
   gap: 20px;
   align-items: start;
 }

@@ -75,14 +75,16 @@ export default function CandidatesList() {
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+  const allSelected = selected.size === candidates.length && candidates.length > 0
+  const someSelected = selected.size > 0 && !allSelected
 
   return (
     <div className="page">
       {/* Header */}
       <div className="page-header">
         <div>
-          <h2 className="page-title">Candidates</h2>
-          <p style={{ color: 'var(--color-text-secondary)', marginTop: 4 }}>{total} total candidates</p>
+          <h1 className="page-title">Candidates</h1>
+          <p className="page-subtitle">{total} total candidates</p>
         </div>
         <Link to="/candidates/new" className="btn btn-primary">
           <Plus size={16} /> Add Candidate
@@ -92,7 +94,7 @@ export default function CandidatesList() {
       {/* Search & Filters */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '1 1 300px' }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)' }} />
+          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-tertiary)', pointerEvents: 'none' }} />
           <input
             className="input"
             style={{ paddingLeft: 38 }}
@@ -101,11 +103,11 @@ export default function CandidatesList() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select className="input" style={{ flex: '0 1 180px', minWidth: 120 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+        <select className="input" style={{ flex: '0 1 160px', minWidth: 120 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Statuses</option>
           {STATUS_OPTIONS.filter(Boolean).map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
-        <select className="input" style={{ flex: '0 1 180px', minWidth: 120 }} value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
+        <select className="input" style={{ flex: '0 1 160px', minWidth: 120 }} value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
           <option value="">All Sources</option>
           {SOURCE_OPTIONS.filter(Boolean).map(s => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -120,9 +122,8 @@ export default function CandidatesList() {
           borderRadius: 'var(--radius-md)',
           padding: '10px 16px',
           marginBottom: 16,
-          boxShadow: '0 0 0 1px var(--color-border-strong)',
         }}>
-          <span style={{ color: 'var(--color-accent)', fontWeight: 600, flex: 1 }}>{selected.size} selected</span>
+          <span style={{ color: 'var(--color-accent)', fontWeight: 600, flex: 1, fontSize: 13 }}>{selected.size} selected</span>
           <button className="btn btn-primary btn-sm" onClick={() => setEmailOpen(true)}>
             <Mail size={14} /> Send Email
           </button>
@@ -145,35 +146,100 @@ export default function CandidatesList() {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* Select all */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px', marginBottom: 4 }}>
-            <input type="checkbox" checked={selected.size === candidates.length && candidates.length > 0}
-              onChange={toggleAll}
-              style={{ width: 16, height: 16, accentColor: 'var(--color-accent)', cursor: 'pointer' }} />
-            <span style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>Select all</span>
-          </div>
-
-          {candidates.map(c => (
-            <CandidateCard
-              key={c.id}
-              candidate={c}
-              selected={selected.has(c.id)}
-              onSelect={() => toggleSelect(c.id)}
-              onDelete={handleDelete}
-              onClick={() => navigate(`/candidates/${c.id}`)}
-            />
-          ))}
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: 44, paddingRight: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={el => { if (el) el.indeterminate = someSelected }}
+                    onChange={toggleAll}
+                    style={{ width: 15, height: 15, accentColor: 'var(--color-accent)', cursor: 'pointer', display: 'block' }}
+                  />
+                </th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Contact</th>
+                <th>Source</th>
+                <th>Added</th>
+                <th style={{ width: 44 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.map(c => (
+                <tr
+                  key={c.id}
+                  onClick={() => navigate(`/candidates/${c.id}`)}
+                  className={selected.has(c.id) ? 'selected' : ''}
+                >
+                  <td style={{ paddingRight: 0 }} onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.id)}
+                      onChange={() => toggleSelect(c.id)}
+                      style={{ width: 15, height: 15, accentColor: 'var(--color-accent)', cursor: 'pointer', display: 'block' }}
+                    />
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 500, fontSize: 14 }}>{c.name}</div>
+                    {c.headline && (
+                      <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.headline}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`badge badge-${c.status}`}>{c.status}</span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {c.email && (
+                        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{c.email}</span>
+                      )}
+                      {c.linkedin_url && (
+                        <a
+                          href={c.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-tertiary)' }}
+                        >
+                          <Linkedin size={11} /> LinkedIn <ExternalLink size={10} />
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    {c.source && <span className="badge badge-source">{c.source}</span>}
+                  </td>
+                  <td style={{ color: 'var(--color-text-tertiary)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                    {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
+                  </td>
+                  <td onClick={e => e.stopPropagation()}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={(e) => handleDelete(c.id, e)}
+                      style={{ color: 'var(--color-danger)', padding: '4px 8px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 24 }}>
           <button className="btn btn-ghost btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
             <ChevronLeft size={16} />
           </button>
-          <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>Page {page} of {totalPages}</span>
+          <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Page {page} of {totalPages}</span>
           <button className="btn btn-ghost btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
             <ChevronRight size={16} />
           </button>
@@ -188,93 +254,6 @@ export default function CandidatesList() {
           onSent={() => { setEmailOpen(false); setSelected(new Set()) }}
         />
       )}
-    </div>
-  )
-}
-
-function StatusBadge({ status }) {
-  return <span className={`badge badge-${status}`}>{status}</span>
-}
-
-function CandidateCard({ candidate: c, selected, onSelect, onDelete, onClick }) {
-  const skills = Array.isArray(c.skills) ? c.skills : []
-  const visibleSkills = skills.slice(0, 5)
-  const extraSkills = skills.length - 5
-
-  return (
-    <div
-      className="card"
-      style={{
-        display: 'flex', gap: 14, alignItems: 'flex-start',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s',
-        borderColor: selected ? 'var(--color-accent)' : 'var(--color-border)',
-      }}
-      onClick={onClick}
-    >
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={onSelect}
-        onClick={e => e.stopPropagation()}
-        style={{ width: 18, height: 18, accentColor: 'var(--color-accent)', cursor: 'pointer', marginTop: 2, flexShrink: 0 }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}>{c.name}</span>
-          <StatusBadge status={c.status} />
-        </div>
-
-        {/* Details */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
-          {c.email && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-              <Mail size={13} /> {c.email}
-            </span>
-          )}
-          {c.linkedin_url && (
-            <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-              <Linkedin size={13} /> LinkedIn <ExternalLink size={11} />
-            </a>
-          )}
-          {c.source && <span className="badge badge-source">{c.source}</span>}
-        </div>
-
-        {/* Skills */}
-        {skills.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {visibleSkills.map(s => (
-              <span key={s} style={{
-                background: 'var(--color-bg-elevated)', color: 'var(--color-text-secondary)',
-                padding: '3px 10px', borderRadius: 100, fontSize: 12,
-              }}>{s}</span>
-            ))}
-            {extraSkills > 0 && (
-              <span style={{
-                background: 'var(--color-bg-elevated)', color: 'var(--color-text-tertiary)',
-                padding: '3px 10px', borderRadius: 100, fontSize: 12,
-              }}>+{extraSkills} more</span>
-            )}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-          <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-            Added {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
-          </span>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={(e) => onDelete(c.id, e)}
-            style={{ color: 'var(--color-danger)', padding: '4px 8px' }}
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

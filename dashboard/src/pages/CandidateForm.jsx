@@ -140,7 +140,7 @@ export default function CandidateForm() {
         {/* Header row with Parse PDF button */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32, gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <h2 className="page-title" style={{ marginBottom: 8 }}>Add Candidate</h2>
+            <h1 className="page-title" style={{ marginBottom: 8 }}>Add Candidate</h1>
             <p style={{ color: 'var(--color-text-secondary)' }}>Fill in the candidate's details</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
