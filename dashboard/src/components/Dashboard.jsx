@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Settings, FileText, Menu, Kanban } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, LogOut, BarChart2, FileText, Menu, Kanban, ChevronDown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AIPanel from './AIPanel.jsx'
 import CommandPalette from './CommandPalette.jsx'
@@ -36,12 +36,19 @@ export default function Dashboard() {
   const [navOpen, setNavOpen] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [candidatesOpen, setCandidatesOpen] = useState(() =>
+    location.pathname.startsWith('/candidates')
+  )
   const isMounted = useRef(false)
 
+  // Close mobile nav on route change; auto-expand candidates group
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
     setPanelOpen(false)
     setNavOpen(false)
+    if (location.pathname.startsWith('/candidates')) {
+      setCandidatesOpen(true)
+    }
   }, [location.pathname])
 
   // Global keyboard shortcuts
@@ -53,27 +60,23 @@ export default function Dashboard() {
       const tag = e.target.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
 
-      // Cmd+K / Ctrl+K — command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         setCmdOpen(o => !o)
         return
       }
 
-      // Cmd+N / Ctrl+N — new candidate
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault()
         navigate('/candidates/new')
         return
       }
 
-      // ? — shortcuts modal
       if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
         setShortcutsOpen(true)
         return
       }
 
-      // G → * navigation
       if (gPending) {
         clearTimeout(gTimer)
         gPending = false
@@ -103,6 +106,10 @@ export default function Dashboard() {
   const initials = profile?.name
     ? profile.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?'
+
+  const isCandidatesActive = location.pathname.startsWith('/candidates')
+
+  const navLinkClass = ({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`
 
   return (
     <div className={`app-shell${panelOpen ? '' : ' panel-collapsed'}`}>
@@ -137,34 +144,84 @@ export default function Dashboard() {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {[
-            { to: '/', icon: Home, label: 'Home', end: true },
-            { to: '/candidates', icon: Users, label: 'All Candidates' },
-            { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
-            { to: '/candidates/new', icon: UserPlus, label: 'Add Candidate' },
-            { to: '/candidates/import', icon: Upload, label: 'Import CSV' },
-            { to: '/analytics', icon: BarChart2, label: 'Analytics' },
-            { to: '/templates', icon: FileText, label: 'Email Templates' },
-            { to: '/settings', icon: Settings, label: 'Settings' },
-          ].map(({ to, icon: Icon, label, end }) => (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) =>
-              `sidebar-nav-item${isActive ? ' active' : ''}`
-            } onClick={() => setNavOpen(false)}>
-              <Icon size={16} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
+
+          {/* Home */}
+          <NavLink to="/" end className={navLinkClass} onClick={() => setNavOpen(false)}>
+            <Home size={16} /><span>Home</span>
+          </NavLink>
+
+          {/* Candidates group */}
+          <div>
+            <button
+              className={`sidebar-nav-group${isCandidatesActive ? ' group-active' : ''}`}
+              onClick={() => setCandidatesOpen(o => !o)}
+            >
+              <div className="sidebar-nav-group-left">
+                <Users size={16} />
+                <span>Candidates</span>
+              </div>
+              <ChevronDown size={13} className={`sidebar-nav-chevron${candidatesOpen ? ' open' : ''}`} />
+            </button>
+
+            {candidatesOpen && (
+              <div className="sidebar-nav-sub">
+                <NavLink
+                  to="/candidates"
+                  end
+                  className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
+                  onClick={() => setNavOpen(false)}
+                >
+                  All Candidates
+                </NavLink>
+                <NavLink
+                  to="/candidates/new"
+                  className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
+                  onClick={() => setNavOpen(false)}
+                >
+                  <UserPlus size={13} /> Add Candidate
+                </NavLink>
+                <NavLink
+                  to="/candidates/import"
+                  className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
+                  onClick={() => setNavOpen(false)}
+                >
+                  <Upload size={13} /> Import CSV
+                </NavLink>
+              </div>
+            )}
+          </div>
+
+          {/* Pipeline */}
+          <NavLink to="/pipeline" className={navLinkClass} onClick={() => setNavOpen(false)}>
+            <Kanban size={16} /><span>Pipeline</span>
+          </NavLink>
+
+          {/* Analytics */}
+          <NavLink to="/analytics" className={navLinkClass} onClick={() => setNavOpen(false)}>
+            <BarChart2 size={16} /><span>Analytics</span>
+          </NavLink>
+
+          {/* Email Templates */}
+          <NavLink to="/templates" className={navLinkClass} onClick={() => setNavOpen(false)}>
+            <FileText size={16} /><span>Email Templates</span>
+          </NavLink>
+
         </nav>
 
-        {/* User profile + logout */}
+        {/* User profile — click to open Settings */}
         <div className="sidebar-footer">
-          <div className="sidebar-user">
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => `sidebar-user-link${isActive ? ' active' : ''}`}
+            title="Settings"
+            onClick={() => setNavOpen(false)}
+          >
             <div className="sidebar-user-avatar">{initials}</div>
             <div className="sidebar-user-info">
               <div className="sidebar-user-name">{profile?.name}</div>
               <div className="sidebar-user-email">{profile?.email}</div>
             </div>
-          </div>
+          </NavLink>
           <button
             className="sidebar-logout-btn"
             onClick={handleSignOut}

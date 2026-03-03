@@ -402,7 +402,7 @@ select.input {
 }
 .analytics-bar-track {
   flex: 1;
-  height: 5px;
+  height: 6px;
   background: rgba(255,255,255,0.06);
   border-radius: 3px;
   overflow: hidden;
@@ -411,7 +411,7 @@ select.input {
   height: 100%;
   background: var(--gray-500);
   border-radius: 3px;
-  transition: width 0.4s ease;
+  transition: width 0.5s ease;
 }
 .analytics-bar-count {
   font-size: 13px;
@@ -419,6 +419,132 @@ select.input {
   width: 24px;
   text-align: right;
   flex-shrink: 0;
+}
+
+/* ── Analytics summary strip ─────────────────────────────────────── */
+.analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.analytics-stat {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+}
+.analytics-stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+.analytics-stat-label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+}
+.analytics-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+@media (max-width: 640px) {
+  .analytics-summary { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Sidebar nav group (collapsible) ────────────────────────────────── */
+.sidebar-nav-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.sidebar-nav-group:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--color-text-primary);
+}
+.sidebar-nav-group.group-active {
+  color: var(--color-text-primary);
+}
+.sidebar-nav-group-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-nav-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  transition: transform 0.2s ease;
+}
+.sidebar-nav-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Sub-items inside a collapsed group */
+.sidebar-nav-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 14px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+.sidebar-nav-sub-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: all 0.12s ease;
+  border: 1px solid transparent;
+}
+.sidebar-nav-sub-item:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--color-text-primary);
+}
+.sidebar-nav-sub-item.active {
+  color: var(--white);
+  background: rgba(255,255,255,0.06);
+  border-color: var(--color-border-strong);
+}
+
+/* Sidebar footer user area — clickable link to settings */
+.sidebar-user-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  margin: -4px -6px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.sidebar-user-link:hover {
+  background: rgba(255,255,255,0.07);
+}
+.sidebar-user-link.active {
+  background: rgba(255,255,255,0.09);
 }
 
 /* ── CSS Variables: Sidebar & Panels ─────────────────────────────────── */
