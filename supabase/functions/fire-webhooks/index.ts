@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const SUPABASE_URL             = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const WHARF_APP_URL             = Deno.env.get("WHARF_APP_URL") ?? "https://app.talentwharf.com";
 
 interface WebhookRow {
   id:     string;
@@ -83,7 +84,7 @@ Deno.serve(async (req: Request) => {
   const results = await Promise.allSettled(
     matching.map(async (webhook) => {
       if (webhook.type === "slack") {
-        return fireSlack(webhook, event, payload);
+        return fireSlack(webhook, event, payload, orgId);
       }
       return fireGeneric(webhook, event, payload, timestamp);
     })
@@ -121,42 +122,121 @@ async function fireGeneric(
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${webhook.url}`);
 }
 
-// ── Fire Slack webhook (Block Kit format) ────────────────────────────────────
+// ── Fire Slack webhook (rich Block Kit) ───────────────────────────────────────
 
 async function fireSlack(
   webhook: WebhookRow,
   event: string,
   payload: Record<string, unknown>,
+  orgId: string,
 ): Promise<void> {
-  const name   = String(payload.candidate_name ?? payload.name ?? "A candidate");
-  const status = String(payload.new_status ?? payload.status ?? "");
+  const name        = String(payload.candidate_name ?? payload.name ?? "A candidate");
+  const newStatus   = String(payload.new_status ?? payload.status ?? "");
+  const candidateId = String(payload.candidate_id ?? "");
+  const candidateUrl = candidateId
+    ? `<${WHARF_APP_URL}/candidates/${candidateId}|${name}>`
+    : name;
 
-  let text = "";
+  let blocks: unknown[] = [];
+
+  // ── candidate.created ─────────────────────────────────────────────────────
   if (event === "candidate.created") {
-    text = `✅ *New candidate added:* ${name}`;
-  } else if (event === "candidate.status_changed") {
-    text = `🔄 *${name}* moved to *${status}*`;
-  } else {
-    text = `📋 Wharf event: *${event}* — ${name}`;
-  }
+    const skills = Array.isArray(payload.skills) ? (payload.skills as string[]).slice(0, 3) : [];
+    const source = String(payload.source ?? "");
 
-  const body = JSON.stringify({
-    blocks: [
+    let headerText = `✅ New candidate added: ${candidateUrl}`;
+    if (payload.headline) headerText += `\n_${payload.headline}_`;
+
+    blocks = [
+      { type: "section", text: { type: "mrkdwn", text: headerText } },
+    ];
+
+    const ctx: string[] = [];
+    if (skills.length > 0) ctx.push(`🏷 ${skills.join(" · ")}`);
+    if (source)             ctx.push(`via ${source}`);
+    if (ctx.length > 0) {
+      blocks.push({
+        type: "context",
+        elements: [{ type: "mrkdwn", text: ctx.join("  ·  ") }],
+      });
+    }
+
+  // ── candidate.status_changed ──────────────────────────────────────────────
+  } else if (event === "candidate.status_changed") {
+    const statusEmoji: Record<string, string> = {
+      new: "🆕", contacted: "📞", interviewing: "🎤", hired: "🎉", rejected: "👋",
+    };
+    const emoji = statusEmoji[newStatus] ?? "🔄";
+    const oldStatus = payload.old_status ? ` _(was ${payload.old_status})_` : "";
+
+    blocks = [
       {
         type: "section",
-        text: { type: "mrkdwn", text },
+        text: { type: "mrkdwn", text: `${emoji} *${candidateUrl}* moved to *${newStatus}*${oldStatus}` },
       },
-      {
+    ];
+
+    // ── Action buttons when entering "interviewing" ───────────────────────
+    if (newStatus === "interviewing" && candidateId && orgId) {
+      const btnValue = `${candidateId}|${orgId}`;
+      blocks.push({
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: { type: "plain_text", text: "✅ Hire" },
+            action_id: "wharf_hire",
+            value: btnValue,
+            style: "primary",
+            confirm: {
+              title:   { type: "plain_text", text: "Hire this candidate?" },
+              text:    { type: "mrkdwn",     text: `Mark *${name}* as hired?` },
+              confirm: { type: "plain_text", text: "Yes, hire" },
+              deny:    { type: "plain_text", text: "Cancel" },
+            },
+          },
+          {
+            type: "button",
+            text: { type: "plain_text", text: "⏭ Keep Interviewing" },
+            action_id: "wharf_keep",
+            value: btnValue,
+          },
+          {
+            type: "button",
+            text: { type: "plain_text", text: "❌ Pass" },
+            action_id: "wharf_reject",
+            value: btnValue,
+            style: "danger",
+            confirm: {
+              title:   { type: "plain_text", text: "Pass on this candidate?" },
+              text:    { type: "mrkdwn",     text: `Mark *${name}* as passed?` },
+              confirm: { type: "plain_text", text: "Yes, pass" },
+              deny:    { type: "plain_text", text: "Cancel" },
+            },
+          },
+        ],
+      });
+    }
+
+    // View-in-Wharf context link
+    if (candidateId) {
+      blocks.push({
         type: "context",
-        elements: [{ type: "mrkdwn", text: `via <https://app.talentwharf.com|TalentWharf>` }],
-      },
-    ],
-  });
+        elements: [{ type: "mrkdwn", text: `<${WHARF_APP_URL}/candidates/${candidateId}|View ${name} in Wharf>` }],
+      });
+    }
+
+  // ── fallback ──────────────────────────────────────────────────────────────
+  } else {
+    blocks = [
+      { type: "section", text: { type: "mrkdwn", text: `📋 Wharf event: *${event}* — ${name}` } },
+    ];
+  }
 
   const res = await fetch(webhook.url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body,
+    body: JSON.stringify({ blocks }),
   });
   if (!res.ok) throw new Error(`Slack returned HTTP ${res.status}`);
 }

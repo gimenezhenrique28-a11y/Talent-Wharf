@@ -471,13 +471,16 @@ export default function Settings() {
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Setup steps</div>
               <ol style={{ fontSize: 13, color: 'var(--color-text-secondary)', paddingLeft: 18, lineHeight: 1.8, margin: 0 }}>
                 <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent)' }}>api.slack.com/apps</a> → create or open your Wharf app</li>
-                <li>Under <strong>Slash Commands</strong>, create <code style={{ fontFamily: 'monospace' }}>/wharf</code></li>
-                <li>Paste the URL above as the Request URL</li>
+                <li>Under <strong>Slash Commands</strong>, create <code style={{ fontFamily: 'monospace' }}>/wharf</code> and paste the URL above</li>
+                <li>Under <strong>Interactivity &amp; Shortcuts</strong>, enable it and paste the <em>same URL</em> as the Request URL — this powers the Hire/Pass buttons</li>
                 <li>Copy the <strong>Signing Secret</strong> from Basic Information and paste it above</li>
                 <li>Install the app to your workspace — done!</li>
               </ol>
               <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 12 }}>
-                Commands: <code style={{ fontFamily: 'monospace' }}>/wharf pipeline</code> · <code style={{ fontFamily: 'monospace' }}>/wharf search [name]</code> · <code style={{ fontFamily: 'monospace' }}>/wharf add [name] [email]</code>
+                <strong>Slash commands:</strong> <code style={{ fontFamily: 'monospace' }}>/wharf pipeline</code> · <code style={{ fontFamily: 'monospace' }}>/wharf search [name]</code> · <code style={{ fontFamily: 'monospace' }}>/wharf add [name] [email]</code>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
+                <strong>Interactive buttons:</strong> when a candidate moves to <em>Interviewing</em>, Wharf posts a Slack card with ✅ Hire · ⏭ Keep · ❌ Pass buttons your team can click to update status without opening the app.
               </div>
             </div>
           </div>
