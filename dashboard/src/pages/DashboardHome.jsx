@@ -59,56 +59,59 @@ export default function DashboardHome() {
   return (
     <div className="page">
       {/* Welcome */}
-      <div style={{ marginBottom: 40 }}>
+      <div style={{ marginBottom: 32 }}>
         <h1 style={{
-          fontSize: '2.5rem',
-          fontWeight: 500,
+          fontSize: '1.5rem',
+          fontWeight: 600,
           letterSpacing: 'var(--ls-heading)',
           lineHeight: 1.2,
+          textTransform: 'uppercase',
         }}>
-          {profile?.name ? `Good to see you, ${profile.name.split(' ')[0]}.` : 'Welcome back.'}
+          {profile?.name ? `Welcome, ${profile.name.split(' ')[0]}.` : 'Welcome back.'}
         </h1>
         <p style={{
           color: 'var(--color-text-secondary)',
-          marginTop: 8,
-          fontSize: 15,
-          letterSpacing: 'var(--ls-body)',
+          marginTop: 6,
+          fontSize: 12,
+          letterSpacing: '0.04em',
         }}>
-          Your recruitment pipeline at a glance.
+          Recruitment pipeline overview — {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/')} UTC
         </p>
       </div>
 
       {/* KPI Grid */}
-      <div className="grid-4" style={{ marginBottom: 40 }}>
+      <div className="grid-4" style={{ marginBottom: 32 }}>
         {kpiCards.map(({ label, value, icon: Icon }) => (
           // eslint-disable-next-line no-unused-vars
-          <div key={label} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div key={label} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
-              width: 44,
-              height: 44,
-              borderRadius: 'var(--radius-md)',
+              width: 40,
+              height: 40,
+              borderRadius: 'var(--radius-sm)',
               background: 'var(--gray-800)',
-              border: '1px solid var(--color-border)',
+              border: '1px solid var(--color-border-strong)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}>
-              <Icon size={20} color="var(--gray-300)" />
+              <Icon size={18} color="var(--gray-300)" />
             </div>
             <div>
               <div style={{
-                fontSize: 30,
-                fontWeight: 500,
-                letterSpacing: '-0.04em',
+                fontSize: 26,
+                fontWeight: 600,
+                letterSpacing: '-0.03em',
                 lineHeight: 1,
                 color: 'var(--white)',
               }}>{value}</div>
               <div style={{
-                fontSize: 13,
-                color: 'var(--color-text-secondary)',
-                marginTop: 4,
-                letterSpacing: 'var(--ls-body)',
+                fontSize: 10,
+                fontWeight: 500,
+                color: 'var(--gray-400)',
+                marginTop: 5,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
               }}>{label}</div>
             </div>
           </div>
@@ -117,32 +120,33 @@ export default function DashboardHome() {
 
       {/* AI Matching */}
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 18 }}>
           <div style={{
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             borderRadius: 'var(--radius-sm)',
             background: 'var(--gray-800)',
-            border: '1px solid var(--color-border)',
+            border: '1px solid var(--color-border-strong)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}>
-            <Sparkles size={18} color="var(--gray-300)" />
+            <Sparkles size={16} color="var(--gray-300)" />
           </div>
           <div>
             <h2 style={{
-              fontSize: '1.25rem',
-              fontWeight: 500,
-              letterSpacing: 'var(--ls-subhead)',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
               lineHeight: 1.3,
+              textTransform: 'uppercase',
             }}>AI Job Matching</h2>
             <p style={{
               color: 'var(--color-text-secondary)',
               marginTop: 4,
-              fontSize: 14,
-              letterSpacing: 'var(--ls-body)',
+              fontSize: 12,
+              letterSpacing: '0.01em',
             }}>
               Paste a job description and AI will rank your best matching candidates.
             </p>
@@ -175,7 +179,7 @@ export default function DashboardHome() {
 
       {/* Match Results */}
       {matches.length > 0 && (
-        <div style={{ marginTop: 32 }}>
+        <div style={{ marginTop: 28 }}>
           <p className="section-title">Top {matches.length} matches</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {matches.map((m, i) => (

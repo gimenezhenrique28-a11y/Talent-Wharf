@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Mail, Send, FileText, Menu, Kanban, ChevronDown, Plus } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Mail, Send, FileText, Menu, Kanban, ChevronDown, Plus, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AIPanel from './AIPanel.jsx'
 import CommandPalette from './CommandPalette.jsx'
@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [navOpen, setNavOpen] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [candidatesOpen, setCandidatesOpen] = useState(() =>
     location.pathname.startsWith('/candidates')
   )
@@ -114,8 +115,25 @@ export default function Dashboard() {
 
   const navLinkClass = ({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`
 
+  const pageName = (() => {
+    const p = location.pathname
+    if (p === '/' || p === '') return 'HOME'
+    if (p.startsWith('/candidates/new')) return 'CANDIDATES / ADD'
+    if (p.startsWith('/candidates/import')) return 'CANDIDATES / IMPORT'
+    if (p.match(/\/candidates\/.+/)) return 'CANDIDATES / DETAIL'
+    if (p.startsWith('/candidates')) return 'CANDIDATES'
+    if (p.startsWith('/pipeline')) return 'PIPELINE'
+    if (p.startsWith('/analytics')) return 'ANALYTICS'
+    if (p.startsWith('/outreach/compose')) return 'OUTREACH / COMPOSE'
+    if (p.startsWith('/outreach/templates')) return 'OUTREACH / TEMPLATES'
+    if (p.startsWith('/outreach/sent')) return 'OUTREACH / SENT HISTORY'
+    if (p.startsWith('/outreach')) return 'OUTREACH'
+    if (p.startsWith('/settings')) return 'SETTINGS'
+    return 'DASHBOARD'
+  })()
+
   return (
-    <div className={`app-shell${panelOpen ? '' : ' panel-collapsed'}`}>
+    <div className={`app-shell${panelOpen ? '' : ' panel-collapsed'}${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
 
       {/* ── Mobile: nav overlay ────────────────────────────────────── */}
       {navOpen && <div className="mobile-nav-overlay" onClick={() => setNavOpen(false)} />}
@@ -144,36 +162,44 @@ export default function Dashboard() {
       </div>
 
       {/* ── Sidebar ────────────────────────────────────────────────── */}
-      <aside className={`sidebar${navOpen ? ' nav-open' : ''}`}>
-        {/* Logo */}
+      <aside className={`sidebar${navOpen ? ' nav-open' : ''}${sidebarCollapsed ? ' collapsed' : ''}`}>
+        {/* Logo + collapse toggle */}
         <div className="sidebar-logo">
-          <div style={{ color: 'var(--white)', lineHeight: 0 }}>
+          <div className="sidebar-logo-wordmark" style={{ color: 'var(--white)', lineHeight: 0 }}>
             <WharfWordmark />
           </div>
+          <button
+            className="sidebar-collapse-btn"
+            onClick={() => setSidebarCollapsed(o => !o)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+          </button>
         </div>
 
         {/* Nav */}
         <nav className="sidebar-nav">
 
           {/* Home */}
-          <NavLink to="/" end className={navLinkClass} onClick={() => setNavOpen(false)}>
-            <Home size={16} /><span>Home</span>
+          <NavLink to="/" end className={navLinkClass} onClick={() => setNavOpen(false)} title="Home">
+            <Home size={15} /><span>Home</span>
           </NavLink>
 
           {/* Candidates group */}
           <div>
             <button
               className={`sidebar-nav-group${isCandidatesActive ? ' group-active' : ''}`}
-              onClick={() => setCandidatesOpen(o => !o)}
+              onClick={() => { if (!sidebarCollapsed) setCandidatesOpen(o => !o); else navigate('/candidates') }}
+              title="Candidates"
             >
               <div className="sidebar-nav-group-left">
-                <Users size={16} />
+                <Users size={15} />
                 <span>Candidates</span>
               </div>
-              <ChevronDown size={13} className={`sidebar-nav-chevron${candidatesOpen ? ' open' : ''}`} />
+              <ChevronDown size={12} className={`sidebar-nav-chevron${candidatesOpen ? ' open' : ''}`} />
             </button>
 
-            {candidatesOpen && (
+            {candidatesOpen && !sidebarCollapsed && (
               <div className="sidebar-nav-sub">
                 <NavLink
                   to="/candidates"
@@ -188,70 +214,82 @@ export default function Dashboard() {
                   className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
                   onClick={() => setNavOpen(false)}
                 >
-                  <UserPlus size={13} /> Add Candidate
+                  <UserPlus size={12} /> Add Candidate
                 </NavLink>
                 <NavLink
                   to="/candidates/import"
                   className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
                   onClick={() => setNavOpen(false)}
                 >
-                  <Upload size={13} /> Import CSV
+                  <Upload size={12} /> Import CSV
                 </NavLink>
               </div>
             )}
           </div>
 
           {/* Pipeline */}
-          <NavLink to="/pipeline" className={navLinkClass} onClick={() => setNavOpen(false)}>
-            <Kanban size={16} /><span>Pipeline</span>
+          <NavLink to="/pipeline" className={navLinkClass} onClick={() => setNavOpen(false)} title="Pipeline">
+            <Kanban size={15} /><span>Pipeline</span>
           </NavLink>
 
           {/* Analytics */}
-          <NavLink to="/analytics" className={navLinkClass} onClick={() => setNavOpen(false)}>
-            <BarChart2 size={16} /><span>Analytics</span>
+          <NavLink to="/analytics" className={navLinkClass} onClick={() => setNavOpen(false)} title="Analytics">
+            <BarChart2 size={15} /><span>Analytics</span>
           </NavLink>
 
           {/* Outreach group */}
           <div>
             <button
               className={`sidebar-nav-group${isOutreachActive ? ' group-active' : ''}`}
-              onClick={() => setOutreachOpen(o => !o)}
+              onClick={() => { if (!sidebarCollapsed) setOutreachOpen(o => !o); else navigate('/outreach/compose') }}
+              title="Outreach"
             >
               <div className="sidebar-nav-group-left">
-                <Mail size={16} />
+                <Mail size={15} />
                 <span>Outreach</span>
               </div>
-              <ChevronDown size={13} className={`sidebar-nav-chevron${outreachOpen ? ' open' : ''}`} />
+              <ChevronDown size={12} className={`sidebar-nav-chevron${outreachOpen ? ' open' : ''}`} />
             </button>
 
-            {outreachOpen && (
+            {outreachOpen && !sidebarCollapsed && (
               <div className="sidebar-nav-sub">
                 <NavLink
                   to="/outreach/compose"
                   className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
                   onClick={() => setNavOpen(false)}
                 >
-                  <Send size={13} /> Compose
+                  <Send size={12} /> Compose
                 </NavLink>
                 <NavLink
                   to="/outreach/templates"
                   className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
                   onClick={() => setNavOpen(false)}
                 >
-                  <FileText size={13} /> Templates
+                  <FileText size={12} /> Templates
                 </NavLink>
                 <NavLink
                   to="/outreach/sent"
                   className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
                   onClick={() => setNavOpen(false)}
                 >
-                  <Mail size={13} /> Sent History
+                  <Mail size={12} /> Sent History
                 </NavLink>
               </div>
             )}
           </div>
 
         </nav>
+
+        {/* System status */}
+        <div className="sidebar-status">
+          <div className="sidebar-status-row">
+            <span className="status-dot status-dot-pulse" />
+            <span className="sidebar-status-label">System Online</span>
+          </div>
+          <div className="sidebar-status-detail">
+            {`PIPELINE ACTIVE\nAI MODEL READY`}
+          </div>
+        </div>
 
         {/* User profile — click to open Settings */}
         <div className="sidebar-footer">
@@ -272,13 +310,37 @@ export default function Dashboard() {
             onClick={handleSignOut}
             title="Logout"
           >
-            <LogOut size={16} />
+            <LogOut size={14} />
           </button>
         </div>
       </aside>
 
       {/* ── Main content ─────────────────────────────────────── */}
       <main className="app-main">
+        {/* Top toolbar */}
+        <div className="page-topbar">
+          <div className="page-topbar-breadcrumb">
+            TALENT WHARF / <span>{pageName}</span>
+          </div>
+          <div className="page-topbar-actions">
+            <button
+              className="btn btn-ghost"
+              style={{ padding: '6px 8px' }}
+              onClick={() => navigate('/candidates/new')}
+              title="Add candidate"
+            >
+              <Plus size={14} />
+            </button>
+            <NavLink
+              to="/settings"
+              className="btn btn-ghost"
+              style={{ padding: '6px 8px' }}
+              title="Settings"
+            >
+              <Settings size={14} />
+            </NavLink>
+          </div>
+        </div>
         <Outlet />
       </main>
 
