@@ -136,7 +136,7 @@ export default function CandidateForm() {
         </Link>
       </div>
 
-      <div style={{ maxWidth: 800 }}>
+
         {/* Header row with Parse PDF button */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32, gap: 16, flexWrap: 'wrap' }}>
           <div>
@@ -248,7 +248,6 @@ export default function CandidateForm() {
             </div>
           </form>
         </div>
-      </div>
     </div>
   )
 }

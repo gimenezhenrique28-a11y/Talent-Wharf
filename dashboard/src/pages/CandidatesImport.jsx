@@ -99,7 +99,7 @@ export default function CandidatesImport() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 700, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* Template download */}
         <div className="card">

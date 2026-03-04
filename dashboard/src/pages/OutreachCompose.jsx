@@ -177,7 +177,6 @@ export default function OutreachCompose() {
         <p className="page-subtitle">Send emails to one or more candidates</p>
       </div>
 
-      <div style={{ maxWidth: 760 }}>
 
         {successCount !== null && (
           <div className="success-banner" style={{ marginBottom: 20 }}>
@@ -380,7 +379,6 @@ export default function OutreachCompose() {
           </div>
 
         </div>
-      </div>
     </div>
   )
 
