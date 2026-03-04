@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, LogOut, BarChart2, FileText, Menu, Kanban, ChevronDown } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Mail, Send, FileText, Menu, Kanban, ChevronDown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AIPanel from './AIPanel.jsx'
 import CommandPalette from './CommandPalette.jsx'
@@ -39,6 +39,9 @@ export default function Dashboard() {
   const [candidatesOpen, setCandidatesOpen] = useState(() =>
     location.pathname.startsWith('/candidates')
   )
+  const [outreachOpen, setOutreachOpen] = useState(() =>
+    location.pathname.startsWith('/outreach')
+  )
   const isMounted = useRef(false)
 
   // Close mobile nav on route change; auto-expand candidates group
@@ -46,9 +49,8 @@ export default function Dashboard() {
     if (!isMounted.current) { isMounted.current = true; return }
     setPanelOpen(false)
     setNavOpen(false)
-    if (location.pathname.startsWith('/candidates')) {
-      setCandidatesOpen(true)
-    }
+    if (location.pathname.startsWith('/candidates')) setCandidatesOpen(true)
+    if (location.pathname.startsWith('/outreach')) setOutreachOpen(true)
   }, [location.pathname])
 
   // Global keyboard shortcuts
@@ -108,6 +110,7 @@ export default function Dashboard() {
     : '?'
 
   const isCandidatesActive = location.pathname.startsWith('/candidates')
+  const isOutreachActive   = location.pathname.startsWith('/outreach')
 
   const navLinkClass = ({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`
 
@@ -201,10 +204,45 @@ export default function Dashboard() {
             <BarChart2 size={16} /><span>Analytics</span>
           </NavLink>
 
-          {/* Email Templates */}
-          <NavLink to="/templates" className={navLinkClass} onClick={() => setNavOpen(false)}>
-            <FileText size={16} /><span>Email Templates</span>
-          </NavLink>
+          {/* Outreach group */}
+          <div>
+            <button
+              className={`sidebar-nav-group${isOutreachActive ? ' group-active' : ''}`}
+              onClick={() => setOutreachOpen(o => !o)}
+            >
+              <div className="sidebar-nav-group-left">
+                <Mail size={16} />
+                <span>Outreach</span>
+              </div>
+              <ChevronDown size={13} className={`sidebar-nav-chevron${outreachOpen ? ' open' : ''}`} />
+            </button>
+
+            {outreachOpen && (
+              <div className="sidebar-nav-sub">
+                <NavLink
+                  to="/outreach/compose"
+                  className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
+                  onClick={() => setNavOpen(false)}
+                >
+                  <Send size={13} /> Compose
+                </NavLink>
+                <NavLink
+                  to="/outreach/templates"
+                  className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
+                  onClick={() => setNavOpen(false)}
+                >
+                  <FileText size={13} /> Templates
+                </NavLink>
+                <NavLink
+                  to="/outreach/sent"
+                  className={({ isActive }) => `sidebar-nav-sub-item${isActive ? ' active' : ''}`}
+                  onClick={() => setNavOpen(false)}
+                >
+                  <Mail size={13} /> Sent History
+                </NavLink>
+              </div>
+            )}
+          </div>
 
         </nav>
 

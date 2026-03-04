@@ -12,6 +12,8 @@ import CandidatesImport from './pages/CandidatesImport.jsx'
 import Analytics from './pages/Analytics.jsx'
 import Settings from './pages/Settings.jsx'
 import EmailTemplates from './pages/EmailTemplates.jsx'
+import OutreachCompose from './pages/OutreachCompose.jsx'
+import SentHistory from './pages/SentHistory.jsx'
 import Pipeline from './pages/Pipeline.jsx'
 
 function App() {
@@ -38,8 +40,13 @@ function App() {
           <Route path="candidates/:id" element={<CandidateDetail />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
-          <Route path="templates" element={<EmailTemplates />} />
           <Route path="pipeline" element={<Pipeline />} />
+          {/* Outreach section */}
+          <Route path="outreach/compose" element={<OutreachCompose />} />
+          <Route path="outreach/templates" element={<EmailTemplates />} />
+          <Route path="outreach/sent" element={<SentHistory />} />
+          {/* Legacy redirect */}
+          <Route path="templates" element={<Navigate to="/outreach/templates" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

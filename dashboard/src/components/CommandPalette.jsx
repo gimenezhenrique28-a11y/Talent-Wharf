@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, BarChart2, Settings, FileText, Search } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, BarChart2, Settings, FileText, Mail, Send, Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const PAGES = [
-  { id: 'p-home',       label: 'Home',            sub: 'Page',   icon: Home,     path: '/' },
-  { id: 'p-candidates', label: 'All Candidates',   sub: 'Page',   icon: Users,    path: '/candidates' },
-  { id: 'p-analytics',  label: 'Analytics',        sub: 'Page',   icon: BarChart2,path: '/analytics' },
-  { id: 'p-settings',   label: 'Settings',         sub: 'Page',   icon: Settings, path: '/settings' },
-  { id: 'p-templates',  label: 'Email Templates',  sub: 'Page',   icon: FileText, path: '/templates' },
+  { id: 'p-home',       label: 'Home',            sub: 'Page',     icon: Home,     path: '/' },
+  { id: 'p-candidates', label: 'All Candidates',  sub: 'Page',     icon: Users,    path: '/candidates' },
+  { id: 'p-analytics',  label: 'Analytics',       sub: 'Page',     icon: BarChart2,path: '/analytics' },
+  { id: 'p-settings',   label: 'Settings',        sub: 'Page',     icon: Settings, path: '/settings' },
+  { id: 'p-compose',    label: 'Compose Email',   sub: 'Outreach', icon: Send,     path: '/outreach/compose' },
+  { id: 'p-templates',  label: 'Email Templates', sub: 'Outreach', icon: FileText, path: '/outreach/templates' },
+  { id: 'p-sent',       label: 'Sent History',    sub: 'Outreach', icon: Mail,     path: '/outreach/sent' },
 ]
 
 const ACTIONS = [
