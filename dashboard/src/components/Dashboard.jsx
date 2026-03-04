@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Mail, Send, FileText, Menu, Kanban, ChevronDown } from 'lucide-react'
+import { Home, Users, UserPlus, Upload, LogOut, BarChart2, Mail, Send, FileText, Menu, Kanban, ChevronDown, Plus } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import AIPanel from './AIPanel.jsx'
 import CommandPalette from './CommandPalette.jsx'
@@ -133,7 +133,14 @@ export default function Dashboard() {
         <div style={{ color: 'var(--white)', flex: 1, display: 'flex', justifyContent: 'center', lineHeight: 0 }}>
           <WharfWordmark />
         </div>
-        <div style={{ width: 36 }} />
+        <button
+          className="btn btn-ghost"
+          style={{ padding: 8 }}
+          onClick={() => navigate('/candidates/new')}
+          aria-label="Add candidate"
+        >
+          <Plus size={20} />
+        </button>
       </div>
 
       {/* ── Sidebar ────────────────────────────────────────────────── */}

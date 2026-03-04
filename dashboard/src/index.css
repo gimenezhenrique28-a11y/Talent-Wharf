@@ -1081,6 +1081,20 @@ select.input {
   .grid-2 { grid-template-columns: 1fr; }
   .grid-4 { grid-template-columns: 1fr 1fr; }
   .page-title { font-size: 1.5rem; }
+  .page-header { margin-bottom: 20px; }
+
+  /* Cards: tighter padding on smaller screens */
+  .card { padding: 16px; }
+
+  /* Table: horizontal scroll — prevents overflow-hidden clipping */
+  .table-wrap { overflow-x: auto; }
+  .table { min-width: 560px; }
+
+  /* Empty state: reduce top/bottom padding */
+  .empty-state { padding: 48px 20px; }
+
+  /* Toast: span full-width at bottom instead of anchored right */
+  .toast-container { left: 12px; right: 12px; bottom: 12px; }
 
   /* Hide AI right panel entirely on mobile */
   .right-panel { display: none !important; }
@@ -1124,11 +1138,29 @@ select.input {
     z-index: 150;
   }
 
-  /* Import results: stack to 1 col */
-  .import-results-grid { grid-template-columns: 1fr; }
+  /* Import results: keep 3 columns — cards are compact enough */
+  .import-results-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 480px) {
   .grid-4 { grid-template-columns: 1fr; }
   .page, .page-narrow { padding: 16px 12px; }
+
+  /* Cards: even tighter on very small phones */
+  .card { padding: 12px; }
+
+  /* Slightly smaller page title on very small phones */
+  .page-title { font-size: 1.25rem; }
+
+  /* Analytics stat number: slightly smaller */
+  .analytics-stat-value { font-size: 22px; }
+
+  /* Table: allow a bit narrower */
+  .table { min-width: 480px; }
+
+  /* Smaller secondary buttons */
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+  /* Stack import result cards on very small phones */
+  .import-results-grid { grid-template-columns: 1fr; }
 }
