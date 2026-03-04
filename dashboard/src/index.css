@@ -1,5 +1,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Prevent any element from causing horizontal page scroll */
+html, body { overflow-x: hidden; max-width: 100%; }
+
 :root {
   /* Core palette — monochromatic, Stripe-inspired */
   --black:       #0A0A0A;
