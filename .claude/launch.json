@@ -11,7 +11,7 @@
       "name": "dashboard",
       "runtimeExecutable": "C:/Program Files/nodejs/node",
       "runtimeArgs": ["C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js", "run", "dev", "--", "--port", "5173"],
-      "cwd": "C:/Users/henrique/Desktop/Wharf - Production/dashboard",
+      "cwd": "dashboard",
       "port": 5173
     }
   ]
