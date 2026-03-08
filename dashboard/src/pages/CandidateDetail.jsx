@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, GitFork, Upload, MapPin, Building2, Globe, Users, ClipboardList, CalendarPlus } from 'lucide-react'
+import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, GitFork, Upload, MapPin, Building2, Globe, Users, ClipboardList, CalendarPlus, Palette, Heart, Eye } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useToast } from '../contexts/ToastContext.jsx'
@@ -35,6 +35,11 @@ export default function CandidateDetail() {
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubError, setGithubError] = useState('')
 
+  // Behance enrichment
+  const [behanceData, setBehanceData] = useState(null)
+  const [behanceLoading, setBehanceLoading] = useState(false)
+  const [behanceError, setBehanceError] = useState('')
+
   // Consent
   const [consentLoading, setConsentLoading] = useState(false)
 
@@ -62,6 +67,7 @@ export default function CandidateDetail() {
       email: c?.email ?? '',
       linkedin_url: c?.linkedin_url ?? '',
       github_url: c?.github_url ?? '',
+      behance_url: c?.behance_url ?? '',
       about: c?.about ?? '',
       status: c?.status ?? 'new',
       skills: Array.isArray(c?.skills) ? c.skills.join(', ') : '',
@@ -88,6 +94,7 @@ export default function CandidateDetail() {
       email: editForm.email || null,
       linkedin_url: editForm.linkedin_url || null,
       github_url: editForm.github_url || null,
+      behance_url: editForm.behance_url || null,
       about: editForm.about || null,
       status: editForm.status,
       skills: skillsArray,
@@ -270,6 +277,31 @@ export default function CandidateDetail() {
       setGithubError(err instanceof Error ? err.message : 'Failed to fetch GitHub data')
     }
     setGithubLoading(false)
+  }
+
+  // ── Behance Enrichment ─────────────────────────────────────────────────────
+
+  async function handleEnrichBehance() {
+    const url = candidate?.behance_url
+    if (!url) return
+
+    setBehanceLoading(true)
+    setBehanceError('')
+    setBehanceData(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await supabase.functions.invoke('enrich-behance', {
+        body: { behance_url: url },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.error) throw new Error(res.error.message)
+      if (res.data?.error) throw new Error(res.data.error)
+      setBehanceData(res.data)
+    } catch (err) {
+      setBehanceError(err instanceof Error ? err.message : 'Failed to fetch Behance data')
+    }
+    setBehanceLoading(false)
   }
 
   // ── Consent request ────────────────────────────────────────────────────────
@@ -473,6 +505,10 @@ export default function CandidateDetail() {
                     <input className="input" placeholder="https://github.com/username" value={editForm.github_url} onChange={e => setEditForm(p => ({ ...p, github_url: e.target.value }))} />
                   </div>
                   <div className="input-group">
+                    <label className="input-label">Behance URL</label>
+                    <input className="input" placeholder="https://www.behance.net/username" value={editForm.behance_url} onChange={e => setEditForm(p => ({ ...p, behance_url: e.target.value }))} />
+                  </div>
+                  <div className="input-group">
                     <label className="input-label">Skills (comma-separated)</label>
                     <input className="input" value={editForm.skills} onChange={e => setEditForm(p => ({ ...p, skills: e.target.value }))} />
                   </div>
@@ -492,6 +528,11 @@ export default function CandidateDetail() {
                   {candidate.github_url && (
                     <a href={candidate.github_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--color-text-secondary)' }}>
                       <Github size={14} /> GitHub <ExternalLink size={12} />
+                    </a>
+                  )}
+                  {candidate.behance_url && (
+                    <a href={candidate.behance_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--color-text-secondary)' }}>
+                      <Palette size={14} /> Behance <ExternalLink size={12} />
                     </a>
                   )}
                   {candidate.source && (
@@ -527,6 +568,15 @@ export default function CandidateDetail() {
             consentLoading={consentLoading}
             hasEmail={!!candidate.email}
             onRequestConsent={handleRequestConsent}
+          />
+
+          {/* Behance Panel */}
+          <BehancePanel
+            behanceUrl={candidate.behance_url}
+            behanceData={behanceData}
+            behanceLoading={behanceLoading}
+            behanceError={behanceError}
+            onEnrich={handleEnrichBehance}
           />
         </div>
 
@@ -860,6 +910,229 @@ const CONSENT_CONFIG = {
   granted:       { color: '#22c55e', label: 'Consent granted', hint: null },
   denied:        { color: '#e57373', label: 'Candidate declined', hint: 'The candidate asked not to be enriched.' },
 }
+
+// ── Behance Panel ─────────────────────────────────────────────────────────────
+
+const BEHANCE_TRANCHE_LABELS = {
+  'Tier 1': 'Exceptional creative presence — highly appreciated portfolio',
+  'Tier 2': 'Strong portfolio — solid appreciations and active output',
+  'Tier 3': 'Growing profile — active but limited public exposure',
+  'Tier 4': 'Early stage — limited public portfolio',
+}
+
+function BehancePanel({ behanceUrl, behanceData, behanceLoading, behanceError, onEnrich }) {
+  const canEnrich = !!behanceUrl && !behanceLoading
+
+  if (!behanceUrl && !behanceData) {
+    return (
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <Palette size={18} color="var(--color-accent)" />
+          <h3 style={{ fontWeight: 600, fontSize: 15 }}>Behance</h3>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>
+          Add a Behance URL in edit mode to enrich this profile with creative portfolio data.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card" style={{ padding: '20px 24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <Palette size={18} color="var(--color-accent)" />
+        <h3 style={{ fontWeight: 600, fontSize: 15 }}>Behance</h3>
+        <div style={{ flex: 1 }} />
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onEnrich}
+          disabled={!canEnrich}
+          style={{ fontSize: 12 }}
+        >
+          {behanceLoading ? <><div className="spinner" /> Loading...</> : 'Enrich'}
+        </button>
+      </div>
+
+      {behanceError && (
+        <p style={{ fontSize: 13, color: '#e57373', marginBottom: 8 }}>{behanceError}</p>
+      )}
+
+      {!behanceData && !behanceLoading && !behanceError && behanceUrl && (
+        <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>
+          Click <strong>Enrich</strong> to load public Behance portfolio data.
+        </p>
+      )}
+
+      {behanceData && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Tranche badge */}
+          {behanceData.tranche && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: behanceData.trancheColor + '12',
+              border: `1px solid ${behanceData.trancheColor}30`,
+              borderRadius: 'var(--radius-sm)',
+              padding: '8px 12px',
+            }}>
+              <div style={{
+                background: behanceData.trancheColor, color: '#000',
+                fontWeight: 700, fontSize: 11, padding: '2px 8px',
+                borderRadius: 100, letterSpacing: '0.04em', flexShrink: 0,
+              }}>
+                {behanceData.tranche}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                  {BEHANCE_TRANCHE_LABELS[behanceData.tranche]}
+                </div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: behanceData.trancheColor, flexShrink: 0 }}>
+                {behanceData.trancheScore}<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--color-text-tertiary)' }}>/100</span>
+              </div>
+            </div>
+          )}
+
+          {/* Profile header */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            {behanceData.avatar ? (
+              <img
+                src={behanceData.avatar}
+                alt="Behance avatar"
+                style={{ width: 48, height: 48, borderRadius: '50%', border: '1px solid var(--color-border)', objectFit: 'cover' }}
+              />
+            ) : (
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--gray-700)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Palette size={20} color="var(--color-text-tertiary)" />
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{behanceData.displayName}</div>
+              {behanceData.occupation && (
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>{behanceData.occupation}</div>
+              )}
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              <Users size={13} /> {behanceData.followers.toLocaleString()} followers
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              <Palette size={13} /> {behanceData.projectCount} projects
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              <Heart size={13} /> {behanceData.totalAppreciations.toLocaleString()} appreciations
+            </div>
+          </div>
+
+          {/* Meta */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {behanceData.location && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                <MapPin size={12} /> {behanceData.location}
+              </div>
+            )}
+            {behanceData.website && (
+              <a
+                href={behanceData.website.startsWith('http') ? behanceData.website : `https://${behanceData.website}`}
+                target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-tertiary)' }}
+              >
+                <Globe size={12} /> {behanceData.website}
+              </a>
+            )}
+          </div>
+
+          {/* Disciplines */}
+          {behanceData.fields.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                Disciplines
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {behanceData.fields.map(f => (
+                  <span key={f} style={{
+                    background: 'var(--color-accent-subtle)', color: 'var(--color-accent)',
+                    padding: '3px 8px', borderRadius: 100, fontSize: 11, fontWeight: 500,
+                  }}>{f}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top Projects */}
+          {behanceData.projects.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                Top Projects
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {behanceData.projects.map(p => (
+                  <a
+                    key={p.id}
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex', gap: 10, alignItems: 'flex-start', textDecoration: 'none',
+                      background: 'var(--color-bg)', border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-sm)', padding: '8px 10px',
+                    }}
+                  >
+                    {p.cover && (
+                      <img
+                        src={p.cover}
+                        alt={p.name}
+                        style={{ width: 60, height: 44, borderRadius: 4, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--color-border)' }}
+                      />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name}
+                        </span>
+                        {p.featured && (
+                          <span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 100, letterSpacing: '0.04em', flexShrink: 0 }}>
+                            Featured
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                          <Heart size={11} /> {p.appreciations.toLocaleString()}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                          <Eye size={11} /> {p.views.toLocaleString()}
+                        </span>
+                      </div>
+                      {p.fields.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                          {p.fields.slice(0, 3).map(f => (
+                            <span key={f} style={{
+                              fontSize: 11, color: 'var(--color-text-tertiary)',
+                              background: 'var(--color-bg-raised)', padding: '1px 6px',
+                              borderRadius: 4, border: '1px solid var(--color-border)',
+                            }}>{f}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── GitHub Panel ──────────────────────────────────────────────────────────────
+
+// ── Consent Bar ───────────────────────────────────────────────────────────────
 
 function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnrich,
                        consentStatus = 'not_requested', consentLoading, hasEmail, onRequestConsent }) {

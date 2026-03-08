@@ -14,7 +14,7 @@ export default function CandidateForm() {
   const [parsedFile, setParsedFile] = useState(null)
 
   const [form, setForm] = useState({
-    name: '', email: '', headline: '', linkedin_url: '',
+    name: '', email: '', headline: '', linkedin_url: '', behance_url: '',
     skills: '', about: '', notes: '', source: 'Manual',
   })
 
@@ -91,6 +91,7 @@ export default function CandidateForm() {
         email: form.email || null,
         headline: form.headline || null,
         linkedin_url: form.linkedin_url || null,
+        behance_url: form.behance_url || null,
         skills: skillsArray,
         about: form.about || null,
         notes: form.notes || null,
@@ -216,6 +217,12 @@ export default function CandidateForm() {
                 <label className="input-label">LinkedIn URL</label>
                 <input className="input" placeholder="https://linkedin.com/in/..." value={form.linkedin_url} onChange={set('linkedin_url')} />
               </div>
+            </div>
+
+            {/* Row 3 — portfolio URLs */}
+            <div className="input-group">
+              <label className="input-label">Behance URL</label>
+              <input className="input" placeholder="https://www.behance.net/username" value={form.behance_url} onChange={set('behance_url')} />
             </div>
 
             {/* Skills */}
