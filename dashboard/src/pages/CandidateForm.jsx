@@ -124,6 +124,19 @@ export default function CandidateForm() {
       console.warn('Webhook fire failed (non-fatal):', err)
     }
 
+    // Send consent email if candidate has an email (non-fatal)
+    if (form.email) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await supabase.functions.invoke('request-consent', {
+          body: { candidate_id: newCandidate.id },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+      } catch (err) {
+        console.warn('Consent request failed (non-fatal):', err)
+      }
+    }
+
     setSaving(false)
     navigate(`/candidates/${newCandidate.id}`)
   }

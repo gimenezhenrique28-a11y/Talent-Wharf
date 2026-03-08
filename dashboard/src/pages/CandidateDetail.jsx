@@ -35,6 +35,9 @@ export default function CandidateDetail() {
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubError, setGithubError] = useState('')
 
+  // Consent
+  const [consentLoading, setConsentLoading] = useState(false)
+
   // Scorecards
   const [feedback, setFeedback] = useState([])
   const [scoreFormOpen, setScoreFormOpen] = useState(false)
@@ -269,6 +272,30 @@ export default function CandidateDetail() {
     setGithubLoading(false)
   }
 
+  // ── Consent request ────────────────────────────────────────────────────────
+
+  async function handleRequestConsent(force = false) {
+    setConsentLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await supabase.functions.invoke('request-consent', {
+        body: { candidate_id: id, force },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.error) throw new Error(res.error.message)
+      if (res.data?.skipped) {
+        toast('Consent already recorded — use force resend if needed', 'info')
+      } else {
+        toast('Consent email sent', 'success')
+        // Refresh candidate to get updated consent_status
+        await fetchData()
+      }
+    } catch (err) {
+      toast(err?.message ?? 'Failed to send consent email', 'error')
+    }
+    setConsentLoading(false)
+  }
+
   // ── Parse CV ───────────────────────────────────────────────────────────────
 
   async function handleCvFileChange(e) {
@@ -496,6 +523,10 @@ export default function CandidateDetail() {
             githubLoading={githubLoading}
             githubError={githubError}
             onEnrich={handleEnrichGithub}
+            consentStatus={candidate.consent_status ?? 'not_requested'}
+            consentLoading={consentLoading}
+            hasEmail={!!candidate.email}
+            onRequestConsent={handleRequestConsent}
           />
         </div>
 
@@ -762,6 +793,60 @@ function RecommendationBadge({ value }) {
 
 // ── GitHub Panel ──────────────────────────────────────────────────────────────
 
+// ── Consent Bar ───────────────────────────────────────────────────────────────
+
+function ConsentBar({ consentStatus, consent, consentLoading, hasEmail, onRequestConsent }) {
+  if (consentStatus === 'not_requested') {
+    return (
+      <div style={{ marginBottom: 14 }}>
+        {hasEmail ? (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onRequestConsent(false)}
+            disabled={consentLoading}
+            style={{ fontSize: 12, width: '100%' }}
+          >
+            {consentLoading ? <><div className="spinner" /> Sending…</> : 'Request profile consent'}
+          </button>
+        ) : (
+          <p style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+            Add an email address to request consent for profile enrichment.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      background: consent.color + '12',
+      border: `1px solid ${consent.color}30`,
+      borderRadius: 'var(--radius-sm)',
+      padding: '7px 10px',
+      marginBottom: 14,
+    }}>
+      <div style={{
+        width: 7, height: 7, borderRadius: '50%',
+        background: consent.color, flexShrink: 0,
+      }} />
+      <span style={{ fontSize: 12, color: consent.color, flex: 1 }}>{consent.label}</span>
+      {(consentStatus === 'pending' || consentStatus === 'denied') && hasEmail && (
+        <button
+          className="btn btn-ghost"
+          onClick={() => onRequestConsent(true)}
+          disabled={consentLoading}
+          style={{ fontSize: 11, padding: '2px 8px', color: 'var(--color-text-tertiary)' }}
+        >
+          {consentLoading ? '…' : 'Resend'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 const TRANCHE_LABELS = {
   'Tier 1': 'Exceptional public footprint — top-tier open source signals',
   'Tier 2': 'Strong GitHub presence — solid projects and activity',
@@ -769,7 +854,19 @@ const TRANCHE_LABELS = {
   'Tier 4': 'Early stage — limited public GitHub activity',
 }
 
-function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnrich }) {
+const CONSENT_CONFIG = {
+  not_requested: { color: '#6b7280', label: 'Consent not requested', hint: null },
+  pending:       { color: '#f59e0b', label: 'Consent email sent — awaiting response', hint: null },
+  granted:       { color: '#22c55e', label: 'Consent granted', hint: null },
+  denied:        { color: '#e57373', label: 'Candidate declined', hint: 'The candidate asked not to be enriched.' },
+}
+
+function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnrich,
+                       consentStatus = 'not_requested', consentLoading, hasEmail, onRequestConsent }) {
+  const consent = CONSENT_CONFIG[consentStatus] ?? CONSENT_CONFIG.not_requested
+  const enrichBlocked = consentStatus === 'denied'
+  const canEnrich = !!githubUrl && !githubLoading && !enrichBlocked
+
   if (!githubUrl && !githubData) {
     return (
       <div className="card" style={{ padding: '20px 24px' }}>
@@ -780,6 +877,14 @@ function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnri
         <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 12 }}>
           Add a GitHub URL in edit mode to enrich this profile with public data.
         </p>
+        {/* Consent controls even without a GitHub URL */}
+        <ConsentBar
+          consentStatus={consentStatus}
+          consent={consent}
+          consentLoading={consentLoading}
+          hasEmail={hasEmail}
+          onRequestConsent={onRequestConsent}
+        />
       </div>
     )
   }
@@ -793,12 +898,22 @@ function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnri
         <button
           className="btn btn-secondary btn-sm"
           onClick={onEnrich}
-          disabled={githubLoading || !githubUrl}
+          disabled={!canEnrich}
+          title={enrichBlocked ? 'Candidate declined consent for enrichment' : undefined}
           style={{ fontSize: 12 }}
         >
           {githubLoading ? <><div className="spinner" /> Loading...</> : 'Enrich'}
         </button>
       </div>
+
+      {/* Consent status banner */}
+      <ConsentBar
+        consentStatus={consentStatus}
+        consent={consent}
+        consentLoading={consentLoading}
+        hasEmail={hasEmail}
+        onRequestConsent={onRequestConsent}
+      />
 
       {githubError && (
         <p style={{ fontSize: 13, color: '#e57373', marginBottom: 8 }}>{githubError}</p>

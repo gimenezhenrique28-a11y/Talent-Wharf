@@ -15,6 +15,7 @@ import EmailTemplates from './pages/EmailTemplates.jsx'
 import OutreachCompose from './pages/OutreachCompose.jsx'
 import SentHistory from './pages/SentHistory.jsx'
 import Pipeline from './pages/Pipeline.jsx'
+import ConsentPage from './pages/ConsentPage.jsx'
 
 function App() {
   const { loading } = useAuth()
@@ -32,6 +33,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/consent" element={<ConsentPage />} />
         <Route element={<ProtectedRoute><Dashboard /></ProtectedRoute>}>
           <Route index element={<DashboardHome />} />
           <Route path="candidates" element={<CandidatesList />} />
