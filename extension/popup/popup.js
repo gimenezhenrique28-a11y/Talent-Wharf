@@ -190,7 +190,13 @@ function showPreview(candidate) {
   const skills = candidate.skills ?? []
   if (skills.length > 0) {
     const list = document.getElementById('skillsList')
-    list.innerHTML = skills.slice(0, 10).map(s => `<span class="skill-tag">${s}</span>`).join('')
+    list.textContent = ''
+    skills.slice(0, 10).forEach(s => {
+      const tag = document.createElement('span')
+      tag.className = 'skill-tag'
+      tag.textContent = s
+      list.appendChild(tag)
+    })
     showEl('skillsSection')
   }
 

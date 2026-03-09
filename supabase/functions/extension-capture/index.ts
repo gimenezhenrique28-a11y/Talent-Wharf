@@ -31,7 +31,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders(true) });
+    return new Response(null, { headers: corsHeaders(false) });
   }
 
   if (req.method !== "POST") {
@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: apiKey, error: keyError } = await supabaseAdmin
     .from("api_keys")
-    .select("id, user_id, revoked")
+    .select("id, user_id, revoked, expires_at")
     .eq("key_hash", keyHash)
     .single();
 
@@ -63,6 +63,10 @@ Deno.serve(async (req: Request) => {
 
   if (apiKey.revoked) {
     return json({ error: "API key has been revoked" }, 403);
+  }
+
+  if (apiKey.expires_at && new Date(apiKey.expires_at) < new Date()) {
+    return json({ error: "API key has expired" }, 403);
   }
 
   // ── Rate limiting (per-key, sliding window using activity_log) ───────────
@@ -75,10 +79,10 @@ Deno.serve(async (req: Request) => {
       .gte('created_at', oneMinuteAgo);
 
     const recentCount = (recent as any).count || 0;
-    const RATE_LIMIT_PER_MINUTE = 60; // allow 60 captures per minute per key
+    const RATE_LIMIT_PER_MINUTE = 10; // 10 captures per minute is generous for manual capture
     if (recentCount > RATE_LIMIT_PER_MINUTE) {
       console.warn(`Rate limit exceeded for key ${apiKey.id} (user ${apiKey.user_id}): ${recentCount}/min`);
-      return json({ error: 'Rate limit exceeded' }, 429);
+      return json({ error: 'Rate limit exceeded. Maximum 10 captures per minute.' }, 429);
     }
   } catch (rlErr) {
     console.error('Rate limit check failed:', rlErr);

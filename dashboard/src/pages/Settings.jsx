@@ -73,7 +73,7 @@ export default function Settings() {
     if (!user?.id) return
     const { data } = await supabase
       .from('api_keys')
-      .select('id, key_prefix, name, created_at, revoked')
+      .select('id, key_prefix, name, created_at, revoked, expires_at')
       .eq('user_id', user.id)
       .eq('revoked', false)
       .order('created_at', { ascending: false })
@@ -309,8 +309,15 @@ export default function Settings() {
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{k.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', fontFamily: 'monospace' }}>{k.key_prefix}••••••••</div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-                    {new Date(k.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                      Created {new Date(k.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                    {k.expires_at && (
+                      <div style={{ fontSize: 11, color: new Date(k.expires_at) < new Date() ? 'var(--color-danger, #ef4444)' : 'var(--color-text-tertiary)' }}>
+                        {new Date(k.expires_at) < new Date() ? 'Expired' : 'Expires'} {new Date(k.expires_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    )}
                   </div>
                   <button className="btn btn-danger btn-sm" onClick={() => handleRevokeKey(k.id)}>
                     <Trash2 size={12} /> Revoke

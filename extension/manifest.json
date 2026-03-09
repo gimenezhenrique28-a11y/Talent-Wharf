@@ -3,7 +3,10 @@
   "name": "TalentWharf - Candidate Capture",
   "version": "1.0.0",
   "description": "Capture candidates from LinkedIn and Gmail with one click",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "permissions": ["activeTab", "storage", "scripting", "tabs"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://mail.google.com/*"
