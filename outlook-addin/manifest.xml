@@ -19,14 +19,14 @@
   <HighResolutionIconUrl DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/assets/icon-80.png" />
   <SupportUrl DefaultValue="https://talentwharf.com" />
 
-  <!-- ── Permissions ───────────────────────────────────────────────── -->
-  <!-- ReadItem lets us access the sender's name, email, and subject   -->
-  <Permissions>ReadItem</Permissions>
-
   <!-- ── Activation rules (legacy, overridden by VersionOverrides) ── -->
   <Rule xsi:type="RuleCollection" Mode="Or">
     <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read" />
   </Rule>
+
+  <!-- ── Permissions ───────────────────────────────────────────────── -->
+  <!-- ReadItem lets us access the sender's name, email, and subject   -->
+  <Permissions>ReadItem</Permissions>
 
   <!-- ── Version Overrides — adds ribbon button ────────────────────── -->
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
