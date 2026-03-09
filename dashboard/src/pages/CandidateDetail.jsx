@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, Upload, MapPin, Building2, Globe, Users, ClipboardList, CalendarPlus } from 'lucide-react'
+import { ArrowLeft, Mail, Linkedin, ExternalLink, Tag, Calendar, Briefcase, MessageSquare, Save, Edit2, Trash2, User, Github, Star, GitFork, Upload, MapPin, Building2, Globe, Users, ClipboardList, CalendarPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useToast } from '../contexts/ToastContext.jsx'
@@ -196,13 +196,14 @@ export default function CandidateDetail() {
     try {
       const [userRes, reposRes] = await Promise.all([
         fetch(`https://api.github.com/users/${username}`),
-        fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=8`),
+        fetch(`https://api.github.com/users/${username}/repos?sort=pushed&per_page=30`),
       ])
       if (!userRes.ok) throw new Error(`GitHub returned ${userRes.status} — check the URL`)
 
       const userData = await userRes.json()
       const reposData = reposRes.ok ? await reposRes.json() : []
 
+      // Language frequency across all repos
       const langCounts = {}
       for (const repo of reposData) {
         if (repo.language) langCounts[repo.language] = (langCounts[repo.language] ?? 0) + 1
@@ -212,6 +213,31 @@ export default function CandidateDetail() {
         .slice(0, 6)
         .map(([lang]) => lang)
 
+      // Aggregate signals
+      const totalStars = reposData.reduce((sum, r) => sum + (r.stargazers_count ?? 0), 0)
+      const totalForks = reposData.reduce((sum, r) => sum + (r.forks_count ?? 0), 0)
+      const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+      const recentRepos = reposData.filter(r => r.pushed_at && new Date(r.pushed_at) > sixMonthsAgo).length
+      const notableRepos = reposData.filter(r => (r.stargazers_count ?? 0) >= 5).length
+
+      // Tranche scoring (0–100)
+      const followersScore  = Math.min((userData.followers ?? 0) / 300, 1) * 20
+      const starsScore      = Math.min(totalStars / 50, 1) * 25
+      const activityScore   = Math.min(recentRepos / 5, 1) * 20
+      const diversityScore  = Math.min(Object.keys(langCounts).length / 4, 1) * 10
+      const notableScore    = Math.min(notableRepos / 3, 1) * 15
+      const reposScore      = Math.min((userData.public_repos ?? 0) / 20, 1) * 10
+      const trancheScore    = Math.round(followersScore + starsScore + activityScore + diversityScore + notableScore + reposScore)
+
+      let tranche, trancheColor
+      if (trancheScore >= 70)      { tranche = 'Tier 1'; trancheColor = '#22c55e' }
+      else if (trancheScore >= 50) { tranche = 'Tier 2'; trancheColor = '#3b82f6' }
+      else if (trancheScore >= 30) { tranche = 'Tier 3'; trancheColor = '#f59e0b' }
+      else                         { tranche = 'Tier 4'; trancheColor = '#6b7280' }
+
+      // Sort by stars desc for display (top projects first)
+      const sortedRepos = [...reposData].sort((a, b) => (b.stargazers_count ?? 0) - (a.stargazers_count ?? 0))
+
       setGithubData({
         avatar_url: userData.avatar_url,
         bio: userData.bio,
@@ -220,15 +246,22 @@ export default function CandidateDetail() {
         company: userData.company,
         location: userData.location,
         blog: userData.blog,
-        repos: reposData.slice(0, 6).map(r => ({
+        repos: sortedRepos.slice(0, 10).map(r => ({
           name: r.name,
           description: r.description,
-          stars: r.stargazers_count,
+          stars: r.stargazers_count ?? 0,
+          forks: r.forks_count ?? 0,
           language: r.language,
+          topics: Array.isArray(r.topics) ? r.topics : [],
           url: r.html_url,
         })),
         topLanguages,
         username,
+        totalStars,
+        totalForks,
+        tranche,
+        trancheScore,
+        trancheColor,
       })
     } catch (err) {
       setGithubError(err instanceof Error ? err.message : 'Failed to fetch GitHub data')
@@ -729,6 +762,13 @@ function RecommendationBadge({ value }) {
 
 // ── GitHub Panel ──────────────────────────────────────────────────────────────
 
+const TRANCHE_LABELS = {
+  'Tier 1': 'Exceptional public footprint — top-tier open source signals',
+  'Tier 2': 'Strong GitHub presence — solid projects and activity',
+  'Tier 3': 'Promising profile — active but limited public footprint',
+  'Tier 4': 'Early stage — limited public GitHub activity',
+}
+
 function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnrich }) {
   if (!githubUrl && !githubData) {
     return (
@@ -772,6 +812,41 @@ function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnri
 
       {githubData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Tranche badge */}
+          {githubData.tranche && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              background: githubData.trancheColor + '12',
+              border: `1px solid ${githubData.trancheColor}30`,
+              borderRadius: 'var(--radius-sm)',
+              padding: '8px 12px',
+            }}>
+              <div style={{
+                background: githubData.trancheColor,
+                color: '#000',
+                fontWeight: 700,
+                fontSize: 11,
+                padding: '2px 8px',
+                borderRadius: 100,
+                letterSpacing: '0.04em',
+                flexShrink: 0,
+              }}>
+                {githubData.tranche}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                  {TRANCHE_LABELS[githubData.tranche]}
+                </div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: githubData.trancheColor, flexShrink: 0 }}>
+                {githubData.trancheScore}<span style={{ fontSize: 10, fontWeight: 400, color: 'var(--color-text-tertiary)' }}>/100</span>
+              </div>
+            </div>
+          )}
+
           {/* Profile header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <img
@@ -788,12 +863,18 @@ function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnri
           </div>
 
           {/* Stats row */}
-          <div style={{ display: 'flex', gap: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
               <Users size={13} /> {githubData.followers} followers
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
               <Github size={13} /> {githubData.public_repos} repos
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              <Star size={13} /> {githubData.totalStars} stars
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              <GitFork size={13} /> {githubData.totalForks} forks
             </div>
           </div>
 
@@ -839,11 +920,11 @@ function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnri
             </div>
           )}
 
-          {/* Repos */}
+          {/* Top Projects */}
           {githubData.repos.length > 0 && (
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-                Recent Repos
+                Top Projects
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {githubData.repos.map(repo => (
@@ -865,8 +946,15 @@ function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnri
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {repo.name}
                       </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
-                        <Star size={11} /> {repo.stars}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        {repo.forks > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                            <GitFork size={11} /> {repo.forks}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--color-text-tertiary)' }}>
+                          <Star size={11} /> {repo.stars}
+                        </div>
                       </div>
                     </div>
                     {repo.description && (
@@ -874,9 +962,28 @@ function GitHubPanel({ githubUrl, githubData, githubLoading, githubError, onEnri
                         {repo.description}
                       </div>
                     )}
-                    {repo.language && (
-                      <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 4 }}>
-                        {repo.language}
+                    {(repo.language || repo.topics.length > 0) && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                        {repo.language && (
+                          <span style={{
+                            fontSize: 11,
+                            color: 'var(--color-text-secondary)',
+                            background: 'var(--color-bg-raised)',
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            border: '1px solid var(--color-border)',
+                          }}>{repo.language}</span>
+                        )}
+                        {repo.topics.slice(0, 3).map(topic => (
+                          <span key={topic} style={{
+                            fontSize: 11,
+                            color: 'var(--color-text-tertiary)',
+                            background: 'var(--color-bg-raised)',
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            border: '1px solid var(--color-border)',
+                          }}>{topic}</span>
+                        ))}
                       </div>
                     )}
                   </a>
