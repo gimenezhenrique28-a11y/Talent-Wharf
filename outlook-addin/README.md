@@ -2,10 +2,12 @@
 
 One-click candidate capture from Outlook emails, with the same functionality as the Chrome extension.
 
-## Beta user install (30 seconds)
+## Beta user install
+
+### Outlook on the web / New Outlook (Windows)
 
 1. Open [Outlook on the web](https://outlook.office.com)
-2. Go to **Settings** → **Mail** → **Customize actions** → **Add apps** (or use the direct link below)
+2. Go to **Settings** → **Mail** → **Customize actions** → **Add apps**
 3. Click **Add a custom add-in** → **Add from URL**
 4. Paste this manifest URL:
    ```
@@ -13,6 +15,20 @@ One-click candidate capture from Outlook emails, with the same functionality as 
    ```
 5. Open any email → click **Add to Wharf** in the ribbon
 6. Enter your `wharf_sk_...` API key in the Settings gear on first use
+
+### Outlook desktop (Windows & Mac)
+
+1. Open Outlook desktop
+2. Go to **Home** tab → **Get Add-ins** (or **Store** on older versions)
+3. Click **My add-ins** → **+ Add a custom add-in** → **Add from URL**
+4. Paste the same manifest URL:
+   ```
+   https://gimenezhenrique28-a11y.github.io/Talent-Wharf/manifest.xml
+   ```
+5. Open any email — **Add to Wharf** appears in the ribbon automatically
+6. Enter your API key in the Settings gear on first use
+
+> **Blocked by IT policy?** Ask your Microsoft 365 admin to deploy it centrally via the Admin Center (see Org-wide deployment below) — this bypasses individual install restrictions.
 
 > **Note:** The add-in is deployed automatically from this repo via GitHub Actions whenever `outlook-addin/` changes on `main`.
 
