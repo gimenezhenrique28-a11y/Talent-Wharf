@@ -20,8 +20,24 @@
   <SupportUrl DefaultValue="https://talentwharf.com" />
 
   <!-- ── Permissions ───────────────────────────────────────────────── -->
-  <!-- ReadItem lets us access the sender's name, email, and subject   -->
   <Permissions>ReadItem</Permissions>
+
+  <!-- ── AppDomains ────────────────────────────────────────────────── -->
+  <AppDomains>
+    <AppDomain>https://gimenezhenrique28-a11y.github.io</AppDomain>
+  </AppDomains>
+
+  <!-- ── Hosts (legacy) ────────────────────────────────────────────── -->
+  <Hosts>
+    <Host Name="Mailbox" />
+  </Hosts>
+
+  <!-- ── Requirements (legacy) ─────────────────────────────────────── -->
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.1" />
+    </Sets>
+  </Requirements>
 
   <!-- ── Activation rules (legacy, overridden by VersionOverrides) ── -->
   <Rule xsi:type="RuleCollection" Mode="Or">
