@@ -15,8 +15,8 @@
   <Description DefaultValue="Capture email senders as candidates directly into your TalentWharf pipeline." />
 
   <!-- ── Icons ─────────────────────────────────────────────────────── -->
-  <IconUrl DefaultValue="https://REPLACE_WITH_YOUR_HOST/assets/icon-80.png" />
-  <HighResolutionIconUrl DefaultValue="https://REPLACE_WITH_YOUR_HOST/assets/icon-80.png" />
+  <IconUrl DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/assets/icon-80.png" />
+  <HighResolutionIconUrl DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/assets/icon-80.png" />
   <SupportUrl DefaultValue="https://talentwharf.com" />
 
   <!-- ── Permissions ───────────────────────────────────────────────── -->
@@ -85,15 +85,14 @@
     <!-- ── Resources ─────────────────────────────────────────────────── -->
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://REPLACE_WITH_YOUR_HOST/assets/icon-16.png" />
-        <bt:Image id="Icon.32x32" DefaultValue="https://REPLACE_WITH_YOUR_HOST/assets/icon-32.png" />
-        <bt:Image id="Icon.80x80" DefaultValue="https://REPLACE_WITH_YOUR_HOST/assets/icon-80.png" />
+        <bt:Image id="Icon.16x16" DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/assets/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/assets/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/assets/icon-80.png" />
       </bt:Images>
 
       <bt:Urls>
-        <!-- Replace the host below with wherever you deploy the add-in files -->
-        <bt:Url id="Commands.Url"   DefaultValue="https://REPLACE_WITH_YOUR_HOST/commands.html" />
-        <bt:Url id="Taskpane.Url"   DefaultValue="https://REPLACE_WITH_YOUR_HOST/taskpane.html" />
+        <bt:Url id="Commands.Url"   DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/commands.html" />
+        <bt:Url id="Taskpane.Url"   DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/taskpane.html" />
       </bt:Urls>
 
       <bt:ShortStrings>
