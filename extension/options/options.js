@@ -21,9 +21,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Save
   saveBtn.addEventListener('click', () => {
     const apiKey = apiKeyInput.value.trim()
-    const functionUrl = functionUrlInput.value.trim() || DEFAULT_URL
+    const rawUrl = functionUrlInput.value.trim() || DEFAULT_URL
 
-    chrome.storage.local.set({ apiKey, functionUrl }, () => {
+    // Validate URL before saving
+    try {
+      const parsed = new URL(rawUrl)
+      if (parsed.protocol !== 'https:') throw new Error('URL must use HTTPS')
+    } catch (err) {
+      alert('Invalid endpoint URL: ' + err.message)
+      return
+    }
+
+    chrome.storage.local.set({ apiKey, functionUrl: rawUrl }, () => {
       toast.classList.add('show')
       setTimeout(() => toast.classList.remove('show'), 3000)
     })

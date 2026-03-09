@@ -9,8 +9,8 @@
     },
     {
       "name": "dashboard",
-      "runtimeExecutable": "C:/Program Files/nodejs/node",
-      "runtimeArgs": ["C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js", "run", "dev", "--", "--port", "5173"],
+      "runtimeExecutable": "C:/Program Files/nodejs/node.exe",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5173"],
       "cwd": "dashboard",
       "port": 5173
     }
