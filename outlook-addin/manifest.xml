@@ -19,9 +19,6 @@
   <HighResolutionIconUrl DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/assets/icon-80.png" />
   <SupportUrl DefaultValue="https://talentwharf.com" />
 
-  <!-- ── Permissions ───────────────────────────────────────────────── -->
-  <Permissions>ReadItem</Permissions>
-
   <!-- ── AppDomains ────────────────────────────────────────────────── -->
   <AppDomains>
     <AppDomain>https://gimenezhenrique28-a11y.github.io</AppDomain>
@@ -38,6 +35,19 @@
       <Set Name="Mailbox" MinVersion="1.1" />
     </Sets>
   </Requirements>
+
+  <!-- ── FormSettings (required by MailApp 1.1 schema) ────────────── -->
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://gimenezhenrique28-a11y.github.io/Talent-Wharf/taskpane.html" />
+        <RequestedHeight>250</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <!-- ── Permissions ───────────────────────────────────────────────── -->
+  <Permissions>ReadItem</Permissions>
 
   <!-- ── Activation rules (legacy, overridden by VersionOverrides) ── -->
   <Rule xsi:type="RuleCollection" Mode="Or">
