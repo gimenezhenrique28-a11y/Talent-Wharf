@@ -59,7 +59,17 @@ export default function DashboardHome() {
       })
 
       if (res.error) {
-        const detail = res.error?.context?.error || res.error?.context?.detail || res.error.message
+        // FunctionsHttpError.context may be a raw Response or already-parsed JSON
+        let detail = res.error.message
+        try {
+          const ctx = res.error.context
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json()
+            if (body?.error) detail = body.error + (body.detail ? ': ' + body.detail : '')
+          } else if (ctx?.error) {
+            detail = ctx.error + (ctx.detail ? ': ' + ctx.detail : '')
+          }
+        } catch { /* ignore parse errors */ }
         setMatchError(detail)
         return
       }

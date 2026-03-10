@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
       }),
@@ -143,13 +143,15 @@ Deno.serve(async (req: Request) => {
   const rawText: string = claudeData?.content?.[0]?.text ?? "";
 
   // -- Parse response --
+  // Use regex to extract the JSON array even if Claude wraps it in prose or code fences
   let matches: MatchResult[];
   try {
-    const cleaned = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    matches = JSON.parse(cleaned);
-    if (!Array.isArray(matches)) throw new Error("Not an array");
-  } catch {
-    return json({ error: "Failed to parse AI response", raw: rawText }, 500);
+    const arrayMatch = rawText.match(/\[[\s\S]*\]/);
+    if (!arrayMatch) throw new Error("No JSON array found in response");
+    matches = JSON.parse(arrayMatch[0]);
+    if (!Array.isArray(matches)) throw new Error("Parsed value is not an array");
+  } catch (parseErr) {
+    return json({ error: "Failed to parse AI response", detail: String(parseErr), raw: rawText.slice(0, 500) }, 500);
   }
 
   const sanitized: MatchResult[] = matches
