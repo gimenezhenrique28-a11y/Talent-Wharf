@@ -11,6 +11,15 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Authorization, Content-Type, x-client-info, apikey",
 };
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split(".")[1];
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
+
 interface Candidate {
   id: string;
   name: string;
@@ -36,16 +45,33 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  // ─ Auth ─
+  // -- Auth --
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
 
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !user) return json({ error: "Unauthorized", detail: authError?.message }, 401);
 
-  // ─ Get org_id ─
+  // Decode without verifying -- lets us see what JWT was sent
+  const claims = decodeJwtPayload(token);
+  const tokenRole = claims?.role as string | undefined;
+  const hasSub = Boolean(claims?.sub);
+
+  // Reject the anon key (role=anon, no sub)
+  if (!hasSub || tokenRole === "anon") {
+    return json({
+      error: "Received anon key instead of user JWT. Re-authenticate and retry.",
+      token_role: tokenRole,
+      has_sub: hasSub,
+    }, 401);
+  }
+
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    return json({ error: "Unauthorized", detail: authError?.message }, 401);
+  }
+
+  // -- Get org_id --
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("users")
     .select("org_id")
@@ -54,7 +80,7 @@ Deno.serve(async (req: Request) => {
 
   if (profileError || !profile?.org_id) return json({ error: "User profile not found" }, 404);
 
-  // ─ Parse body <
+  // -- Parse body --
   let job_description: string;
   try {
     const body = await req.json();
@@ -64,7 +90,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "job_description is required" }, 400);
   }
 
-  // ─ Fetch candidates <
+  // -- Fetch candidates --
   const { data: candidates, error: candidatesError } = await supabaseAdmin
     .from("candidates")
     .select("id, name, headline, skills, experience")
@@ -74,7 +100,7 @@ Deno.serve(async (req: Request) => {
   if (candidatesError) return json({ error: "Failed to fetch candidates", detail: candidatesError.message }, 500);
   if (!candidates || candidates.length === 0) return json({ matches: [] });
 
-  // ─ Build prompt <
+  // -- Build prompt --
   const candidateSummaries = (candidates as Candidate[]).map((c) => {
     const skills = Array.isArray(c.skills) ? c.skills.slice(0, 8).join(", ") : "";
     const exp = Array.isArray(c.experience)
@@ -83,14 +109,11 @@ Deno.serve(async (req: Request) => {
     return `ID:${c.id}|${c.name}|${c.headline ?? ""}|${skills}|${exp}`;
   });
 
-  const systemPrompt = `You are a technical recruiter. Rank the top 10 best candidates for this job.
-Return ONLY a valid JSON array, no markdown:
-[{"id":"<uuid>","name":"<string>","match_score":<0-100>,"matching_skills":["skill1"],"reasoning":"<1 sentence>"}]
-Order by match_score descending.`;
+  const systemPrompt = `You are a technical recruiter. Rank the top 10 best candidates for this job.\nReturn ONLY a valid JSON array, no markdown:\n[{"id":"<uuid>","name":"<string>","match_score":<0-100>,"matching_skills":["skill1"],"reasoning":"<1 sentence>"}]\nOrder by match_score descending.`;
 
   const userPrompt = `JOB:\n${job_description.slice(0, 1500)}\n\nCANDIDATES:\n${candidateSummaries.join("\n")}`;
 
-  // ─ Call Claude ─
+  // -- Call Claude --
   let claudeResponse: Response;
   try {
     claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -119,10 +142,10 @@ Order by match_score descending.`;
   const claudeData = await claudeResponse.json();
   const rawText: string = claudeData?.content?.[0]?.text ?? "";
 
-  // ─ Parse response ─
+  // -- Parse response --
   let matches: MatchResult[];
   try {
-    const cleaned = rawText.replace(/```json\n/g, "").replace(/```\n?/g, "").trim();
+    const cleaned = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     matches = JSON.parse(cleaned);
     if (!Array.isArray(matches)) throw new Error("Not an array");
   } catch {
@@ -143,7 +166,7 @@ Order by match_score descending.`;
   return json({ matches: sanitized });
 });
 
-// ─ Helpers ─
+// -- Helpers --
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
