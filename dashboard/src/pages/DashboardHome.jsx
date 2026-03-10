@@ -39,16 +39,23 @@ export default function DashboardHome() {
     setMatches([])
 
     try {
-      // Let the SDK inject the latest session token automatically.
-      // getUser() verifies the token with the server and handles refresh.
+      // getUser() waits for SDK init and validates the token server-side.
+      // Then getSession() gives us the confirmed-valid access_token to send.
       const { error: userError } = await supabase.auth.getUser()
       if (userError) {
         setMatchError('Session expired — please log in again.')
         return
       }
 
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setMatchError('No active session — please log in again.')
+        return
+      }
+
       const res = await supabase.functions.invoke('match-job', {
         body: { job_description: jobDescription },
+        headers: { Authorization: 'Bearer ' + session.access_token },
       })
 
       if (res.error) {
