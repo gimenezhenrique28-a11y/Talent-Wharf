@@ -38,15 +38,26 @@ export default function DashboardHome() {
     setMatchError('')
     setMatches([])
 
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await supabase.functions.invoke('match-job', {
-      body: { job_description: jobDescription },
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setMatchError('Session expired — please refresh and log in again.')
+        return
+      }
 
-    setMatching(false)
-    if (res.error) { setMatchError(res.error.message); return }
-    setMatches(res.data?.matches ?? [])
+      const res = await supabase.functions.invoke('match-job', {
+        body: { job_description: jobDescription },
+        headers: { Authorization: 'Bearer ' + session.access_token },
+      })
+
+      if (res.error) { setMatchError(res.error.message); return }
+      if (res.data?.error) { setMatchError(res.data.error + (res.data.detail ? ': ' + res.data.detail : '')); return }
+      setMatches(res.data?.matches ?? [])
+    } catch (err) {
+      setMatchError(err?.message ?? 'Unexpected error')
+    } finally {
+      setMatching(false)
+    }
   }
 
   const kpiCards = [
