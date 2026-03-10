@@ -41,12 +41,9 @@ Deno.serve(async (req: Request) => {
   if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const supabaseUser = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
-  if (authError || !user) return json({ error: "Unauthorized" }, 401);
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) return json({ error: "Unauthorized", detail: authError?.message }, 401);
 
   // ─ Get org_id ─
   const { data: profile, error: profileError } = await supabaseAdmin

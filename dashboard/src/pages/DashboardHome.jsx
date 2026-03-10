@@ -39,18 +39,23 @@ export default function DashboardHome() {
     setMatches([])
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setMatchError('Session expired — please refresh and log in again.')
+      // Let the SDK inject the latest session token automatically.
+      // getUser() verifies the token with the server and handles refresh.
+      const { error: userError } = await supabase.auth.getUser()
+      if (userError) {
+        setMatchError('Session expired — please log in again.')
         return
       }
 
       const res = await supabase.functions.invoke('match-job', {
         body: { job_description: jobDescription },
-        headers: { Authorization: 'Bearer ' + session.access_token },
       })
 
-      if (res.error) { setMatchError(res.error.message); return }
+      if (res.error) {
+        const detail = res.error?.context?.error || res.error?.context?.detail || res.error.message
+        setMatchError(detail)
+        return
+      }
       if (res.data?.error) { setMatchError(res.data.error + (res.data.detail ? ': ' + res.data.detail : '')); return }
       setMatches(res.data?.matches ?? [])
     } catch (err) {
