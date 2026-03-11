@@ -5,14 +5,27 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, x-client-info, apikey",
+};
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split(".")[1];
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
+
 interface Candidate {
   id: string;
   name: string;
-  email: string | null;
   headline: string | null;
-  about: string | null;
   skills: string[];
-  experience: Array<{ title?: string; company?: string; description?: string }>;
+  experience: Array<{ title?: string; company?: string }>;
 }
 
 interface MatchResult {
@@ -24,73 +37,50 @@ interface MatchResult {
 }
 
 Deno.serve(async (req: Request) => {
-  const dashboardUrl = Deno.env.get("DASHBOARD_URL") || "https://app.talentwharf.com";
-
-  function corsHeaders(origin?: string) {
-    return {
-      "Access-Control-Allow-Origin": origin === dashboardUrl ? origin : "null",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    };
-  }
-
   if (req.method === "OPTIONS") {
-    const origin = req.headers.get("origin");
-    return new Response(null, { headers: corsHeaders(origin) });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  // -- Auth --
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return json({ error: "Missing Authorization header" }, 401);
+  if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
+
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+
+  // Decode without verifying -- lets us see what JWT was sent
+  const claims = decodeJwtPayload(token);
+  const tokenRole = claims?.role as string | undefined;
+  const hasSub = Boolean(claims?.sub);
+
+  // Reject the anon key (role=anon, no sub)
+  if (!hasSub || tokenRole === "anon") {
+    return json({
+      error: "Received anon key instead of user JWT. Re-authenticate and retry.",
+      token_role: tokenRole,
+      has_sub: hasSub,
+    }, 401);
   }
 
-  const supabaseUser = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
-  if (authError || !user) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  // ── Get org_id for this user ───────────────────────────────────────────────
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    return json({ error: "Unauthorized", detail: authError?.message }, 401);
+  }
 
+  // -- Get org_id --
   const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
+    .from("users")
     .select("org_id")
     .eq("id", user.id)
     .single();
 
-  if (profileError || !profile?.org_id) {
-    return json({ error: "Profile not found" }, 404);
-  }
+  if (profileError || !profile?.org_id) return json({ error: "User profile not found" }, 404);
 
-  // ── Rate limiting (per-user) — limit expensive matching calls
-  try {
-    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
-    const recent = await supabaseAdmin
-      .from('activity_log')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', oneMinuteAgo);
-
-    const recentCount = (recent as any).count || 0;
-    const MATCH_RATE_LIMIT_PER_MINUTE = 6; // allow 6 match-job calls per minute per user
-    if (recentCount > MATCH_RATE_LIMIT_PER_MINUTE) {
-      console.warn(`Match-job rate limit for user ${user.id}: ${recentCount}/min`);
-      return json({ error: 'Rate limit exceeded' }, 429);
-    }
-  } catch (err) {
-    console.error('Match-job rate limit check failed:', err);
-  }
-
-  // ── Parse body ────────────────────────────────────────────────────────────
+  // -- Parse body --
   let job_description: string;
   try {
     const body = await req.json();
@@ -100,44 +90,30 @@ Deno.serve(async (req: Request) => {
     return json({ error: "job_description is required" }, 400);
   }
 
-  // ── Fetch candidates ──────────────────────────────────────────────────────
+  // -- Fetch candidates --
   const { data: candidates, error: candidatesError } = await supabaseAdmin
     .from("candidates")
-    .select("id, name, email, headline, about, skills, experience")
+    .select("id, name, headline, skills, experience")
     .eq("org_id", profile.org_id)
-    .limit(200);
+    .limit(50);
 
-  if (candidatesError) {
-    console.error(`Failed to fetch candidates for org ${profile.org_id}:`, candidatesError.message);
-    return json({ error: "Failed to fetch candidates" }, 500);
-  }
+  if (candidatesError) return json({ error: "Failed to fetch candidates", detail: candidatesError.message }, 500);
+  if (!candidates || candidates.length === 0) return json({ matches: [] });
 
-  if (!candidates || candidates.length === 0) {
-    return json({ matches: [] });
-  }
-
-  // ── Build candidate summaries for the prompt ───────────────────────────────
+  // -- Build prompt --
   const candidateSummaries = (candidates as Candidate[]).map((c) => {
-    const skills = Array.isArray(c.skills) ? c.skills.join(", ") : "";
+    const skills = Array.isArray(c.skills) ? c.skills.slice(0, 8).join(", ") : "";
     const exp = Array.isArray(c.experience)
-      ? c.experience
-          .slice(0, 3)
-          .map((e) => `${e.title ?? ""} at ${e.company ?? ""}`.trim())
-          .join("; ")
+      ? c.experience.slice(0, 2).map((e) => `${e.title ?? ""} at ${e.company ?? ""}`.trim()).join("; ")
       : "";
-    return `ID:${c.id} | Name:${c.name} | Headline:${c.headline ?? ""} | Skills:${skills} | Experience:${exp} | About:${(c.about ?? "").slice(0, 300)}`;
+    return `ID:${c.id}|${c.name}|${c.headline ?? ""}|${skills}|${exp}`;
   });
 
-  const candidateBlock = candidateSummaries.join("\n");
+  const systemPrompt = `You are a technical recruiter. Rank the top 10 best candidates for this job.\nReturn ONLY a valid JSON array, no markdown:\n[{"id":"<uuid>","name":"<string>","match_score":<0-100>,"matching_skills":["skill1"],"reasoning":"<1 sentence>"}]\nOrder by match_score descending.`;
 
-  // ── Call Claude ────────────────────────────────────────────────────────────
-  const systemPrompt = `You are an expert technical recruiter. Given a job description and a list of candidates, rank the top 10 best matches.
-Return ONLY a valid JSON array (no markdown, no extra text) with this exact structure:
-[{"id":"<uuid>","name":"<string>","match_score":<0-100>,"matching_skills":["skill1","skill2"],"reasoning":"<1-2 sentences>"}]
-Base match_score on skills overlap, experience relevance, and headline alignment. Order by match_score descending.`;
+  const userPrompt = `JOB:\n${job_description.slice(0, 1500)}\n\nCANDIDATES:\n${candidateSummaries.join("\n")}`;
 
-  const userPrompt = `JOB DESCRIPTION:\n${job_description}\n\nCANDIDATES:\n${candidateBlock}`;
-
+  // -- Call Claude --
   let claudeResponse: Response;
   try {
     claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -148,7 +124,7 @@ Base match_score on skills overlap, experience relevance, and headline alignment
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
@@ -166,18 +142,18 @@ Base match_score on skills overlap, experience relevance, and headline alignment
   const claudeData = await claudeResponse.json();
   const rawText: string = claudeData?.content?.[0]?.text ?? "";
 
-  // ── Parse Claude's JSON response ──────────────────────────────────────────
+  // -- Parse response --
+  // Use regex to extract the JSON array even if Claude wraps it in prose or code fences
   let matches: MatchResult[];
   try {
-    // Strip possible markdown fences
-    const cleaned = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    matches = JSON.parse(cleaned);
-    if (!Array.isArray(matches)) throw new Error("Not an array");
-  } catch {
-    return json({ error: "Failed to parse AI response", raw: rawText }, 500);
+    const arrayMatch = rawText.match(/\[[\s\S]*\]/);
+    if (!arrayMatch) throw new Error("No JSON array found in response");
+    matches = JSON.parse(arrayMatch[0]);
+    if (!Array.isArray(matches)) throw new Error("Parsed value is not an array");
+  } catch (parseErr) {
+    return json({ error: "Failed to parse AI response", detail: String(parseErr), raw: rawText.slice(0, 500) }, 500);
   }
 
-  // Validate and sanitize each result
   const sanitized: MatchResult[] = matches
     .slice(0, 10)
     .map((m) => ({
@@ -192,14 +168,11 @@ Base match_score on skills overlap, experience relevance, and headline alignment
   return json({ matches: sanitized });
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers --
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": Deno.env.get("DASHBOARD_URL") || "https://app.talentwharf.com",
-    },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }

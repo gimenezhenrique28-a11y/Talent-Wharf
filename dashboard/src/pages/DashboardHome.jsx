@@ -39,9 +39,17 @@ export default function DashboardHome() {
     setMatches([])
 
     try {
+      // getUser() waits for SDK init and validates the token server-side.
+      // Then getSession() gives us the confirmed-valid access_token to send.
+      const { error: userError } = await supabase.auth.getUser()
+      if (userError) {
+        setMatchError('Session expired — please log in again.')
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        setMatchError('Session expired — please refresh and log in again.')
+        setMatchError('No active session — please log in again.')
         return
       }
 
@@ -50,7 +58,21 @@ export default function DashboardHome() {
         headers: { Authorization: 'Bearer ' + session.access_token },
       })
 
-      if (res.error) { setMatchError(res.error.message); return }
+      if (res.error) {
+        // FunctionsHttpError.context may be a raw Response or already-parsed JSON
+        let detail = res.error.message
+        try {
+          const ctx = res.error.context
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json()
+            if (body?.error) detail = body.error + (body.detail ? ': ' + body.detail : '')
+          } else if (ctx?.error) {
+            detail = ctx.error + (ctx.detail ? ': ' + ctx.detail : '')
+          }
+        } catch { /* ignore parse errors */ }
+        setMatchError(detail)
+        return
+      }
       if (res.data?.error) { setMatchError(res.data.error + (res.data.detail ? ': ' + res.data.detail : '')); return }
       setMatches(res.data?.matches ?? [])
     } catch (err) {
