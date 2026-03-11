@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { subWeeks, startOfWeek, format } from 'date-fns'
+import * as XLSX from 'xlsx'
+import { Download } from 'lucide-react'
 
 /* ── Color palette for charts ─────────────────────────────────────────────── */
 const STATUS_COLORS = {
@@ -86,13 +88,61 @@ export default function Analytics() {
   const topSkills = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]).slice(0, 10)
   const maxSkill  = Math.max(...topSkills.map(x => x[1]), 1)
 
+
+  /* ── Export to Excel ── */
+  function exportToExcel() {
+    const wb = XLSX.utils.book_new()
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Candidates', total],
+      ['Hired', hired],
+      ['Active in Pipeline', active],
+      ['Hire Rate (%)', hireRate],
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), 'Summary')
+
+    const funnelData = [
+      ['Status', 'Count'],
+      ...statusCounts.map(({ status, count }) => [status, count]),
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(funnelData), 'Pipeline Funnel')
+
+    const sourceData = [
+      ['Source', 'Count'],
+      ...sourceArr.map(([source, count]) => [source, count]),
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sourceData), 'Source Breakdown')
+
+    const weeklyData = [
+      ['Week Starting', 'Candidates Added'],
+      ...weeklyCounts.map(({ label, count }) => [label, count]),
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(weeklyData), 'Weekly Adds')
+
+    const skillsData = [
+      ['Skill', 'Candidate Count'],
+      ...Object.entries(skillCounts).sort((a, b) => b[1] - a[1]).map(([skill, count]) => [skill, count]),
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(skillsData), 'Skills')
+
+    const fileName = 'wharf-analytics-' + format(new Date(), 'yyyy-MM-dd') + '.xlsx'
+    XLSX.writeFile(wb, fileName)
+  }
+
   return (
     <div className="page">
 
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 className="page-title">Analytics</h1>
-        <p className="page-subtitle">Pipeline metrics and candidate insights</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-subtitle">Pipeline metrics and candidate insights</p>
+        </div>
+        <button className="btn btn-secondary" onClick={exportToExcel} style={{ gap: 6, marginTop: 4 }}>
+          <Download size={14} />
+          Export to Excel
+        </button>
       </div>
 
       {/* ── Summary strip ─────────────────────────────────────────────── */}
