@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Send, Eye, Mail, CalendarPlus } from 'lucide-react'
+import { X, Send, Eye, Mail, CalendarPlus, Sparkles } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../contexts/ToastContext.jsx'
 import { generateICS, parseDateTime } from '../lib/ics.js'
 
 const TEMPLATES = {
@@ -45,8 +46,27 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
   const [preview, setPreview] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [humanizing, setHumanizing] = useState(false)
+  const [preHumanize, setPreHumanize] = useState(null)
 
+  const { toast } = useToast()
   const tpl = TEMPLATES[templateId]
+
+  async function handleHumanize() {
+    if (!body.trim()) return
+    setHumanizing(true)
+    setPreHumanize({ subject, body })
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await supabase.functions.invoke('humanize-email', {
+      body: { subject, body },
+      headers: { Authorization: 'Bearer ' + session.access_token },
+    })
+    setHumanizing(false)
+    if (res.error) { toast('Humanize failed: ' + res.error.message); setPreHumanize(null); return }
+    const { subject: newSubject, body: newBody } = res.data ?? {}
+    if (newSubject) setSubject(newSubject)
+    if (newBody)   setBody(newBody)
+  }
 
   function handleDownloadICS() {
     const date = vars.date ?? ''
@@ -215,6 +235,26 @@ export default function EmailComposer({ candidateIds, onClose, onSent }) {
               Use <code style={{ background: 'var(--color-bg-elevated)', padding: '1px 5px', borderRadius: 4 }}>{'{name}'}</code> for candidate name,{' '}
               <code style={{ background: 'var(--color-bg-elevated)', padding: '1px 5px', borderRadius: 4 }}>{'{scheduling_link}'}</code> for your Calendly/scheduling URL
             </span>
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleHumanize}
+                disabled={humanizing || !body.trim()}
+                style={{ gap: 6 }}
+              >
+                {humanizing ? <><div className="spinner" /> Humanizing…</> : <><Sparkles size={13} /> Humanize text</>}
+              </button>
+              {preHumanize && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { setSubject(preHumanize.subject); setBody(preHumanize.body); setPreHumanize(null) }}
+                >
+                  Undo
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Preview toggle */}

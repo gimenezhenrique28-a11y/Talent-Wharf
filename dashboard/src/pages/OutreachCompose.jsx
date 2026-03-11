@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Search, X, Send, Eye, CalendarPlus, UserPlus } from 'lucide-react'
+import { Search, X, Send, Eye, CalendarPlus, UserPlus, Sparkles } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { generateICS, parseDateTime } from '../lib/ics.js'
 import { useToast } from '../contexts/ToastContext.jsx'
@@ -59,6 +59,8 @@ export default function OutreachCompose() {
   const [sending, setSending]       = useState(false)
   const [error, setError]           = useState('')
   const [successCount, setSuccess]  = useState(null)
+  const [humanizing, setHumanizing] = useState(false)
+  const [preHumanize, setPreHumanize] = useState(null) // { subject, body } for undo
 
   const tpl = TEMPLATES[templateId]
 
@@ -168,6 +170,22 @@ export default function OutreachCompose() {
     setTemplateId('')
     setVars({})
     setPreview(false)
+  }
+
+  async function handleHumanize() {
+    if (!body.trim()) return
+    setHumanizing(true)
+    setPreHumanize({ subject, body })
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await supabase.functions.invoke('humanize-email', {
+      body: { subject, body },
+      headers: { Authorization: 'Bearer ' + session.access_token },
+    })
+    setHumanizing(false)
+    if (res.error) { toast('Humanize failed: ' + res.error.message); setPreHumanize(null); return }
+    const { subject: newSubject, body: newBody } = res.data ?? {}
+    if (newSubject) setSubject(newSubject)
+    if (newBody)   setBody(newBody)
   }
 
   return (
@@ -343,6 +361,26 @@ export default function OutreachCompose() {
             <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
               Use <code style={{ background: 'var(--color-bg-elevated)', padding: '1px 5px', borderRadius: 4 }}>{'{name}'}</code> for candidate name
             </span>
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleHumanize}
+                disabled={humanizing || !body.trim()}
+                style={{ gap: 6 }}
+              >
+                {humanizing ? <><div className="spinner" /> Humanizing…</> : <><Sparkles size={13} /> Humanize text</>}
+              </button>
+              {preHumanize && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { setSubject(preHumanize.subject); setBody(preHumanize.body); setPreHumanize(null) }}
+                >
+                  Undo
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ── Preview toggle ── */}
