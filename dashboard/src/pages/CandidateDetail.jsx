@@ -50,7 +50,7 @@ export default function CandidateDetail() {
     const [{ data: c }, { data: n }, { data: fb }] = await Promise.all([
       supabase.from('candidates').select('*').eq('id', id).single(),
       supabase.from('candidate_notes').select('*, users(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
-      supabase.from('candidate_feedback').select('*, profiles(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
+      supabase.from('candidate_feedback').select('*, profiles!candidate_feedback_user_id_fkey(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
     ])
     setCandidate(c)
     setEditForm({
@@ -79,9 +79,9 @@ export default function CandidateDetail() {
     const statusChanged = candidate?.status !== editForm.status
     const prevStatus = candidate?.status
 
-    await supabase.from('candidates').update({
+    const { error: saveError } = await supabase.from('candidates').update({
       name: editForm.name,
-      headline: editForm.headline,
+      headline: editForm.headline || null,
       email: editForm.email || null,
       linkedin_url: editForm.linkedin_url || null,
       github_url: editForm.github_url || null,
@@ -89,6 +89,12 @@ export default function CandidateDetail() {
       status: editForm.status,
       skills: skillsArray,
     }).eq('id', id)
+
+    if (saveError) {
+      toast(saveError.message ?? 'Failed to save candidate', 'error')
+      setSaving(false)
+      return
+    }
 
     // Fire webhook if status changed
     if (statusChanged) {

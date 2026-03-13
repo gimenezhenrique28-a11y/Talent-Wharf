@@ -106,7 +106,14 @@ export default function Pipeline() {
       c.id === candidateId ? { ...c, status: newStatus } : c
     ))
 
-    await supabase.from('candidates').update({ status: newStatus }).eq('id', candidateId)
+    const { error: updateError } = await supabase.from('candidates').update({ status: newStatus }).eq('id', candidateId)
+
+    if (updateError) {
+      // Revert optimistic update
+      setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, status: prevStatus } : c))
+      console.error('Failed to move candidate:', updateError.message)
+      return
+    }
 
     // Fire webhook (non-fatal)
     try {
