@@ -11,6 +11,7 @@ export default function DashboardHome() {
   const [matching, setMatching] = useState(false)
   const [matchError, setMatchError] = useState('')
   const [activity, setActivity] = useState([])
+  const [activityLoading, setActivityLoading] = useState(true)
 
   const fetchStats = useCallback(async () => {
     const weekAgo = new Date()
@@ -32,6 +33,7 @@ export default function DashboardHome() {
   }, [])
 
   const fetchActivity = useCallback(async () => {
+    setActivityLoading(true)
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
     const weekAgoISO = weekAgo.toISOString()
@@ -54,6 +56,9 @@ export default function DashboardHome() {
 
     const events = []
 
+    if (logRes.error) console.error('[activity_log]', logRes.error)
+    if (socialRes.error) console.error('[candidates social]', socialRes.error)
+
     if (logRes.data) {
       for (const row of logRes.data) {
         events.push({ id: row.id, type: row.action, details: row.details, candidate_id: row.candidate_id, ts: row.created_at })
@@ -74,6 +79,7 @@ export default function DashboardHome() {
 
     events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
     setActivity(events.slice(0, 20))
+    setActivityLoading(false)
   }, [])
 
   useEffect(() => { fetchStats(); fetchActivity() }, [fetchStats, fetchActivity])
@@ -203,16 +209,20 @@ export default function DashboardHome() {
       </div>
 
       {/* Activity Feed */}
-      {activity.length > 0 && (
-        <div className="card" style={{ marginBottom: 28 }}>
-          <p className="section-title" style={{ marginBottom: 16 }}>This Week</p>
+      <div className="card" style={{ marginBottom: 28 }}>
+        <p className="section-title" style={{ marginBottom: 16 }}>This Week</p>
+        {activityLoading ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>Loading activity...</div>
+        ) : activity.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>No activity this week.</div>
+        ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {activity.map((event, i) => (
               <ActivityRow key={event.id} event={event} isLast={i === activity.length - 1} />
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* AI Matching */}
       <div className="card">
