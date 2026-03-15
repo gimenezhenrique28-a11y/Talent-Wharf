@@ -50,7 +50,7 @@ export default function CandidateDetail() {
     const [{ data: c }, { data: n }, { data: fb }] = await Promise.all([
       supabase.from('candidates').select('*').eq('id', id).single(),
       supabase.from('candidate_notes').select('*, users(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
-      supabase.from('candidate_feedback').select('*, profiles(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
+      supabase.from('candidate_feedback').select('*, profiles!candidate_feedback_user_id_fkey(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
     ])
     setCandidate(c)
     setEditForm({
@@ -61,6 +61,7 @@ export default function CandidateDetail() {
       github_url: c?.github_url ?? '',
       about: c?.about ?? '',
       status: c?.status ?? 'new',
+      position: c?.position ?? '',
       skills: Array.isArray(c?.skills) ? c.skills.join(', ') : '',
     })
     setNotes(n ?? [])
@@ -79,16 +80,23 @@ export default function CandidateDetail() {
     const statusChanged = candidate?.status !== editForm.status
     const prevStatus = candidate?.status
 
-    await supabase.from('candidates').update({
+    const { error: saveError } = await supabase.from('candidates').update({
       name: editForm.name,
-      headline: editForm.headline,
+      headline: editForm.headline || null,
       email: editForm.email || null,
       linkedin_url: editForm.linkedin_url || null,
       github_url: editForm.github_url || null,
       about: editForm.about || null,
       status: editForm.status,
+      position: editForm.position || null,
       skills: skillsArray,
     }).eq('id', id)
+
+    if (saveError) {
+      toast(saveError.message ?? 'Failed to save candidate', 'error')
+      setSaving(false)
+      return
+    }
 
     // Fire webhook if status changed
     if (statusChanged) {
@@ -414,6 +422,18 @@ export default function CandidateDetail() {
                 <input className="input" value={editForm.headline} onChange={e => setEditForm(p => ({ ...p, headline: e.target.value }))} style={{ textAlign: 'center', marginTop: 8 }} placeholder="Headline" />
               ) : candidate.headline && (
                 <p style={{ fontSize: 15, color: 'var(--color-text-secondary)', textAlign: 'center', marginTop: 6 }}>{candidate.headline}</p>
+              )}
+            </div>
+
+            {/* Position (role being hired for) */}
+            <div style={{ marginBottom: 16 }}>
+              <div className="input-label" style={{ marginBottom: 6 }}>Position</div>
+              {editing ? (
+                <input className="input" value={editForm.position} onChange={e => setEditForm(p => ({ ...p, position: e.target.value }))} placeholder="e.g. Senior Frontend Engineer" />
+              ) : candidate.position ? (
+                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{candidate.position}</span>
+              ) : (
+                <span style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>—</span>
               )}
             </div>
 

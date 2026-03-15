@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, UserPlus, Briefcase, TrendingUp, Sparkles } from 'lucide-react'
+import { Users, UserPlus, Briefcase, TrendingUp, Sparkles, Mail, ArrowRight, Github, Linkedin, Palette } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
@@ -10,6 +10,8 @@ export default function DashboardHome() {
   const [matches, setMatches] = useState([])
   const [matching, setMatching] = useState(false)
   const [matchError, setMatchError] = useState('')
+  const [activity, setActivity] = useState([])
+  const [activityLoading, setActivityLoading] = useState(true)
 
   const fetchStats = useCallback(async () => {
     const weekAgo = new Date()
@@ -30,7 +32,57 @@ export default function DashboardHome() {
     })
   }, [])
 
-  useEffect(() => { fetchStats() }, [fetchStats])
+  const fetchActivity = useCallback(async () => {
+    setActivityLoading(true)
+    const weekAgo = new Date()
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    const weekAgoISO = weekAgo.toISOString()
+
+    const [logRes, socialRes] = await Promise.all([
+      supabase
+        .from('activity_log')
+        .select('id, action, details, created_at, candidate_id')
+        .in('action', ['status_changed', 'candidate_added', 'email_sent'])
+        .gte('created_at', weekAgoISO)
+        .order('created_at', { ascending: false })
+        .limit(40),
+      supabase
+        .from('candidates')
+        .select('id, name, github_url, behance_url, linkedin_url, source, created_at')
+        .gte('created_at', weekAgoISO)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ])
+
+    const events = []
+
+    if (logRes.error) console.error('[activity_log]', logRes.error)
+    if (socialRes.error) console.error('[candidates social]', socialRes.error)
+
+    if (logRes.data) {
+      for (const row of logRes.data) {
+        events.push({ id: row.id, type: row.action, details: row.details, candidate_id: row.candidate_id, ts: row.created_at })
+      }
+    }
+
+    if (socialRes.data) {
+      for (const c of socialRes.data) {
+        if (c.github_url)
+          events.push({ id: `gh-${c.id}`, type: 'github_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
+        if (c.behance_url)
+          events.push({ id: `be-${c.id}`, type: 'behance_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
+        // only show LinkedIn profile event if candidate wasn't captured via LinkedIn (avoid duplicate with candidate_added)
+        if (c.linkedin_url && c.source !== 'LinkedIn')
+          events.push({ id: `li-${c.id}`, type: 'linkedin_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
+      }
+    }
+
+    events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
+    setActivity(events.slice(0, 20))
+    setActivityLoading(false)
+  }, [])
+
+  useEffect(() => { fetchStats(); fetchActivity() }, [fetchStats, fetchActivity])
 
   async function handleMatch() {
     if (!jobDescription.trim()) return
@@ -74,7 +126,12 @@ export default function DashboardHome() {
         return
       }
       if (res.data?.error) { setMatchError(res.data.error + (res.data.detail ? ': ' + res.data.detail : '')); return }
-      setMatches(res.data?.matches ?? [])
+      const resultMatches = res.data?.matches ?? []
+      if (resultMatches.length === 0) {
+        setMatchError('No matching candidates found. Try a different job description or add more candidates.')
+        return
+      }
+      setMatches(resultMatches)
     } catch (err) {
       setMatchError(err?.message ?? 'Unexpected error')
     } finally {
@@ -151,6 +208,22 @@ export default function DashboardHome() {
         ))}
       </div>
 
+      {/* Activity Feed */}
+      <div className="card" style={{ marginBottom: 28 }}>
+        <p className="section-title" style={{ marginBottom: 16 }}>This Week</p>
+        {activityLoading ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>Loading activity...</div>
+        ) : activity.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>No activity this week.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {activity.map((event, i) => (
+              <ActivityRow key={event.id} event={event} isLast={i === activity.length - 1} />
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* AI Matching */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 18 }}>
@@ -221,6 +294,100 @@ export default function DashboardHome() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+const STATUS_LABELS = {
+  new: 'New', screening: 'Screening', interviewing: 'Interviewing',
+  offered: 'Offered', hired: 'Hired', rejected: 'Rejected', archived: 'Archived',
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${Math.max(1, mins)}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+function getEventMeta(event) {
+  const d = event.details ?? {}
+  const name = d.name ?? 'Unknown'
+  switch (event.type) {
+    case 'status_changed':
+      return {
+        Icon: ArrowRight,
+        label: <><strong>{name}</strong> — {STATUS_LABELS[d.from] ?? d.from} → <strong>{STATUS_LABELS[d.to] ?? d.to}</strong></>,
+        sub: null,
+      }
+    case 'candidate_added':
+      return {
+        Icon: d.source === 'LinkedIn' ? Linkedin : UserPlus,
+        label: <><strong>{name}</strong> added{d.source ? ` via ${d.source}` : ''}</>,
+        sub: null,
+      }
+    case 'email_sent':
+      return {
+        Icon: Mail,
+        label: <>Email sent to <strong>{name}</strong></>,
+        sub: d.subject ?? null,
+      }
+    case 'github_profile':
+      return {
+        Icon: Github,
+        label: <><strong>{name}</strong> — GitHub profile detected</>,
+        sub: null,
+      }
+    case 'behance_profile':
+      return {
+        Icon: Palette,
+        label: <><strong>{name}</strong> — Behance portfolio detected</>,
+        sub: null,
+      }
+    case 'linkedin_profile':
+      return {
+        Icon: Linkedin,
+        label: <><strong>{name}</strong> — LinkedIn profile detected</>,
+        sub: null,
+      }
+    default:
+      return { Icon: UserPlus, label: <strong>{name}</strong>, sub: null }
+  }
+}
+
+function ActivityRow({ event, isLast }) {
+  const meta = getEventMeta(event)
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 12,
+      paddingBottom: isLast ? 0 : 14,
+      marginBottom: isLast ? 0 : 14,
+      borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
+    }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: 'var(--radius-sm)',
+        background: 'var(--gray-800)', border: '1px solid var(--color-border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        <meta.Icon size={13} color="var(--gray-300)" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, color: 'var(--color-text-primary)', lineHeight: 1.5 }}>
+          {meta.label}
+        </div>
+        {meta.sub && (
+          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2, letterSpacing: '0.01em' }}>
+            {meta.sub}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', letterSpacing: '0.04em', flexShrink: 0, marginTop: 3 }}>
+        {timeAgo(event.ts)}
+      </div>
     </div>
   )
 }

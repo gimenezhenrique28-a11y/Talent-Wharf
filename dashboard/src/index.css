@@ -1124,17 +1124,47 @@ select.input {
 /* ── Kanban board ────────────────────────────────────────────────────── */
 .kanban-board {
   display: flex;
-  gap: 14px;
+  gap: 0;
   overflow-x: auto;
   padding-bottom: 20px;
   align-items: flex-start;
   -webkit-overflow-scrolling: touch;
 }
-.kanban-col {
-  flex: 0 0 230px;
+
+/* Zone: "Active pipeline" and "Decisions" */
+.kanban-zone {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
+}
+.kanban-zone-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-tertiary);
+  padding: 0 4px 2px;
+}
+.kanban-zone-cols {
+  display: flex;
+  gap: 14px;
+}
+
+/* Vertical divider between zones */
+.kanban-zone-divider {
+  flex-shrink: 0;
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border);
+  margin: 0 20px;
+}
+
+.kanban-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* width is set inline per-column */
 }
 .kanban-col-header {
   display: flex;
@@ -1164,6 +1194,8 @@ select.input {
   background: rgba(255,255,255,0.04);
   outline: 1px dashed var(--color-border-strong);
 }
+
+/* Full card */
 .kanban-card {
   background: var(--color-bg-raised);
   border: 1px solid var(--color-border);
@@ -1178,6 +1210,40 @@ select.input {
 .kanban-card:active { cursor: grabbing; }
 .kanban-card:hover { border-color: var(--color-border-strong); }
 .kanban-card.dragging { opacity: 0.35; }
+
+/* Compact card */
+.kanban-card-compact {
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Skill / source tag inside a card */
+.kanban-tag {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  padding: 2px 7px;
+  border-radius: 100px;
+  font-size: 10px;
+}
+
+/* Swimlane group label inside a column */
+.kanban-swimlane-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+  padding: 6px 2px 2px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
+.kanban-swimlane-label:first-child {
+  border-top: none;
+  margin-top: 0;
+}
 
 /* ── Layout classes ──────────────────────────────────────────────────── */
 
