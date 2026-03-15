@@ -126,7 +126,11 @@ export default function CandidateDetail() {
 
   async function handleDelete() {
     if (!confirm('Delete this candidate? This cannot be undone.')) return
-    await supabase.from('candidates').delete().eq('id', id)
+    const { error } = await supabase.from('candidates').delete().eq('id', id)
+    if (error) {
+      alert(`Delete failed: ${error.message}`)
+      return
+    }
     navigate('/candidates')
   }
 
