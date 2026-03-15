@@ -45,24 +45,32 @@ Deno.serve(async (req: Request) => {
   console.log(`parse-resume: user=${user.id} pdf_len=${pdf_base64.length}`);
 
   // ── Call Claude ───────────────────────────────────────────────────────────
-  const PROMPT = `Extract structured data from this CV/resume.
-Return ONLY valid JSON — no markdown fences, no explanation. Use this exact shape:
+
+  // System prompt: grounding rules that prevent hallucination
+  const SYSTEM = `You are a CV data extraction tool. Your only job is to copy information that is \
+explicitly present in the provided document.
+
+STRICT RULES — no exceptions:
+- Extract ONLY text that appears verbatim or near-verbatim in the document
+- Never infer, guess, or generate any information not present in the document
+- Never fabricate a summary — "about" must come from the candidate's own words if present
+- If a field is absent or ambiguous, return null (strings) or [] (arrays)
+- Return a single JSON object. No markdown fences, no explanation, no preamble.`;
+
+  const USER_PROMPT = `Extract the following fields from this CV. Use this exact JSON shape:
 {
   "name": "full name or null",
   "email": "email address or null",
-  "headline": "current job title / role or null",
-  "about": "2-3 sentence professional summary or null",
+  "headline": "current or most recent job title or null",
+  "about": "candidate's own professional summary verbatim or condensed, or null if absent",
   "skills": ["skill1", "skill2"],
   "experience": [
     { "title": "Job Title", "company": "Company Name", "start": "2020", "end": "Present" }
   ]
 }
-Rules:
-- skills: max 15, most relevant first
-- experience: max 5 entries, most recent first
-- If a field is not in the CV, use null (for strings) or [] (for arrays)`;
+Constraints: skills max 15 (most relevant first), experience max 5 (most recent first).`;
 
-  let extracted: unknown;
+  let extracted: Record<string, unknown>;
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -73,18 +81,21 @@ Rules:
         "content-type":      "application/json",
       },
       body: JSON.stringify({
-        model:      "claude-3-5-sonnet-20241022",
-        max_tokens: 1024,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type:   "document",
-              source: { type: "base64", media_type: "application/pdf", data: pdf_base64 },
-            },
-            { type: "text", text: PROMPT },
-          ],
-        }],
+        model:       "claude-haiku-4-5-20251001",
+        max_tokens:  1024,
+        temperature: 0,           // deterministic — eliminates creative invention
+        system:      SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf_base64 } },
+              { type: "text", text: USER_PROMPT },
+            ],
+          },
+          // Pre-fill the assistant turn — forces model to start with { and skip any prose prefix
+          { role: "assistant", content: [{ type: "text", text: "{" }] },
+        ],
       }),
     });
 
@@ -93,10 +104,27 @@ Rules:
       return json({ error: "Claude API error", detail: errText }, 500, cors);
     }
 
-    const data  = await res.json();
-    const raw   = data.content?.[0]?.text ?? "";
-    const clean = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-    extracted   = JSON.parse(clean);
+    const data = await res.json();
+    // Pre-fill means response continues from "{" — prepend it back
+    const raw  = "{" + (data.content?.[0]?.text ?? "");
+    extracted  = JSON.parse(raw);
+
+    // ── Post-processing validation: reject anything that looks invented ────
+    if (extracted.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(extracted.email))) {
+      extracted.email = null;
+    }
+    if (Array.isArray(extracted.skills)) {
+      extracted.skills = (extracted.skills as unknown[])
+        .filter((s): s is string => typeof s === "string" && s.length >= 1 && s.length <= 60)
+        .slice(0, 15);
+    }
+    if (Array.isArray(extracted.experience)) {
+      const currentYear = new Date().getFullYear();
+      extracted.experience = (extracted.experience as unknown[]).filter((e) => {
+        const startYear = parseInt(String((e as Record<string, string>).start ?? ""));
+        return isNaN(startYear) || (startYear >= 1950 && startYear <= currentYear + 1);
+      });
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return json({ error: "Failed to parse CV", detail: msg }, 500, cors);

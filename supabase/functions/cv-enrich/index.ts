@@ -111,22 +111,31 @@ Deno.serve(async (req: Request) => {
   console.log(`cv-enrich: candidate=${candidate_id} pdf_base64_len=${pdf_base64.length} filename=${filename ?? "none"}`);
 
   // ── Call Claude with the PDF ───────────────────────────────────────────────
-  const PROMPT = `Extract structured data from this CV/resume.
-Return ONLY valid JSON — no markdown fences, no explanation. Use this exact shape:
+
+  // System prompt: grounding rules that prevent hallucination
+  const SYSTEM = `You are a CV data extraction tool. Your only job is to copy information that is \
+explicitly present in the provided document.
+
+STRICT RULES — no exceptions:
+- Extract ONLY text that appears verbatim or near-verbatim in the document
+- Never infer, guess, or generate any information not present in the document
+- Never fabricate a summary — "about" must come from the candidate's own words if present
+- If a field is absent or ambiguous, return null (strings) or [] (arrays)
+- Return a single JSON object. No markdown fences, no explanation, no preamble.`;
+
+  // User prompt: schema only, no behavioral instructions (those are in system)
+  const USER_PROMPT = `Extract the following fields from this CV. Use this exact JSON shape:
 {
   "name": "full name or null",
   "email": "email address or null",
-  "headline": "current job title / role or null",
-  "about": "2-3 sentence professional summary or null",
+  "headline": "current or most recent job title or null",
+  "about": "candidate's own professional summary verbatim or condensed, or null if absent",
   "skills": ["skill1", "skill2"],
   "experience": [
     { "title": "Job Title", "company": "Company Name", "start": "2020", "end": "Present" }
   ]
 }
-Rules:
-- skills: max 15, most relevant first
-- experience: max 5 entries, most recent first
-- If a field is not in the CV, use null (for strings) or [] (for arrays)`;
+Constraints: skills max 15 (most relevant first), experience max 5 (most recent first).`;
 
   let extracted: Extracted;
   try {
@@ -139,18 +148,21 @@ Rules:
         "content-type":      "application/json",
       },
       body: JSON.stringify({
-        model:      "claude-3-5-sonnet-20241022",
-        max_tokens: 1024,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type:   "document",
-              source: { type: "base64", media_type: "application/pdf", data: pdf_base64 },
-            },
-            { type: "text", text: PROMPT },
-          ],
-        }],
+        model:       "claude-haiku-4-5-20251001",
+        max_tokens:  1024,
+        temperature: 0,           // deterministic — eliminates creative invention
+        system:      SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf_base64 } },
+              { type: "text", text: USER_PROMPT },
+            ],
+          },
+          // Pre-fill the assistant turn — forces model to start with { and skip any prose prefix
+          { role: "assistant", content: [{ type: "text", text: "{" }] },
+        ],
       }),
     });
 
@@ -163,10 +175,31 @@ Rules:
     }
 
     const anthropicData = await anthropicRes.json();
-    const raw   = anthropicData.content?.[0]?.text ?? "";
+    // Pre-fill means response continues from "{" — prepend it back
+    const raw   = "{" + (anthropicData.content?.[0]?.text ?? "");
     console.log("Claude raw response:", raw.slice(0, 200));
-    const clean = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-    extracted   = JSON.parse(clean);
+    extracted   = JSON.parse(raw);
+
+    // ── Post-processing validation: reject anything that looks invented ────
+    // Email must pass a basic format check
+    if (extracted.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(extracted.email))) {
+      console.warn("cv-enrich: rejected malformed email", extracted.email);
+      extracted.email = null;
+    }
+    // Skills must be short tokens (long strings are likely hallucinated sentences)
+    if (Array.isArray(extracted.skills)) {
+      extracted.skills = extracted.skills
+        .filter((s): s is string => typeof s === "string" && s.length >= 1 && s.length <= 60)
+        .slice(0, 15);
+    }
+    // Experience dates must be plausible years
+    if (Array.isArray(extracted.experience)) {
+      const currentYear = new Date().getFullYear();
+      extracted.experience = extracted.experience.filter((e) => {
+        const startYear = parseInt(String((e as Record<string, string>).start ?? ""));
+        return isNaN(startYear) || (startYear >= 1950 && startYear <= currentYear + 1);
+      });
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("CV extraction failed:", msg);
