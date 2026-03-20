@@ -70,7 +70,11 @@ export default function CandidatesList() {
   async function handleDelete(id, e) {
     e.stopPropagation()
     if (!confirm('Delete this candidate?')) return
-    await supabase.from('candidates').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    const { error } = await supabase.from('candidates').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) {
+      alert(`Delete failed: ${error.message}`)
+      return
+    }
     fetch()
   }
 
