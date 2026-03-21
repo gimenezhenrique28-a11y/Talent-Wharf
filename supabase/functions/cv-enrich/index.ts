@@ -243,7 +243,6 @@ Constraints: skills max 15 (most relevant first), experience max 5 (most recent 
 
   // ── Activity log ──────────────────────────────────────────────────────────
   await supabaseAdmin.from("activity_log").insert({
-    org_id:       orgId,
     candidate_id,
     user_id:      userId,
     action:       "cv_parsed",

@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
 
   // -- Get org_id --
   const { data: profile, error: profileError } = await supabaseAdmin
-    .from("users")
+    .from("profiles")
     .select("org_id")
     .eq("id", user.id)
     .single();

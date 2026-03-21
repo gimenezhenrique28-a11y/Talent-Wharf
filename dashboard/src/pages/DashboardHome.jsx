@@ -14,72 +14,81 @@ export default function DashboardHome() {
   const [activityLoading, setActivityLoading] = useState(true)
 
   const fetchStats = useCallback(async () => {
-    const weekAgo = new Date()
-    weekAgo.setDate(weekAgo.getDate() - 7)
+    try {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
 
-    const [total, thisWeek, interviewing, hired] = await Promise.all([
-      supabase.from('candidates').select('*', { count: 'exact', head: true }),
-      supabase.from('candidates').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
-      supabase.from('candidates').select('*', { count: 'exact', head: true }).eq('status', 'interviewing'),
-      supabase.from('candidates').select('*', { count: 'exact', head: true }).eq('status', 'hired'),
-    ])
+      const [total, thisWeek, interviewing, hired] = await Promise.all([
+        supabase.from('candidates').select('*', { count: 'exact', head: true }),
+        supabase.from('candidates').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
+        supabase.from('candidates').select('*', { count: 'exact', head: true }).eq('status', 'interviewing'),
+        supabase.from('candidates').select('*', { count: 'exact', head: true }).eq('status', 'hired'),
+      ])
 
-    setStats({
-      total: total.count ?? 0,
-      thisWeek: thisWeek.count ?? 0,
-      interviewing: interviewing.count ?? 0,
-      hired: hired.count ?? 0,
-    })
+      setStats({
+        total: total.count ?? 0,
+        thisWeek: thisWeek.count ?? 0,
+        interviewing: interviewing.count ?? 0,
+        hired: hired.count ?? 0,
+      })
+    } catch (err) {
+      console.error('[fetchStats]', err)
+    }
   }, [])
 
   const fetchActivity = useCallback(async () => {
     setActivityLoading(true)
-    const weekAgo = new Date()
-    weekAgo.setDate(weekAgo.getDate() - 7)
-    const weekAgoISO = weekAgo.toISOString()
+    try {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      const weekAgoISO = weekAgo.toISOString()
 
-    const [logRes, socialRes] = await Promise.all([
-      supabase
-        .from('activity_log')
-        .select('id, action, details, created_at, candidate_id')
-        .in('action', ['status_changed', 'candidate_added', 'email_sent'])
-        .gte('created_at', weekAgoISO)
-        .order('created_at', { ascending: false })
-        .limit(40),
-      supabase
-        .from('candidates')
-        .select('id, name, github_url, behance_url, linkedin_url, source, created_at')
-        .gte('created_at', weekAgoISO)
-        .order('created_at', { ascending: false })
-        .limit(50),
-    ])
+      const [logRes, socialRes] = await Promise.all([
+        supabase
+          .from('activity_log')
+          .select('id, action, metadata, created_at, candidate_id')
+          .in('action', ['status_changed', 'candidate_added', 'email_sent'])
+          .gte('created_at', weekAgoISO)
+          .order('created_at', { ascending: false })
+          .limit(40),
+        supabase
+          .from('candidates')
+          .select('id, name, github_url, behance_url, linkedin_url, source, created_at')
+          .gte('created_at', weekAgoISO)
+          .order('created_at', { ascending: false })
+          .limit(50),
+      ])
 
-    const events = []
+      const events = []
 
-    if (logRes.error) console.error('[activity_log]', logRes.error)
-    if (socialRes.error) console.error('[candidates social]', socialRes.error)
+      if (logRes.error) console.error('[activity_log]', logRes.error)
+      if (socialRes.error) console.error('[candidates social]', socialRes.error)
 
-    if (logRes.data) {
-      for (const row of logRes.data) {
-        events.push({ id: row.id, type: row.action, details: row.details, candidate_id: row.candidate_id, ts: row.created_at })
+      if (logRes.data) {
+        for (const row of logRes.data) {
+          events.push({ id: row.id, type: row.action, details: row.metadata, candidate_id: row.candidate_id, ts: row.created_at })
+        }
       }
-    }
 
-    if (socialRes.data) {
-      for (const c of socialRes.data) {
-        if (c.github_url)
-          events.push({ id: `gh-${c.id}`, type: 'github_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
-        if (c.behance_url)
-          events.push({ id: `be-${c.id}`, type: 'behance_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
-        // only show LinkedIn profile event if candidate wasn't captured via LinkedIn (avoid duplicate with candidate_added)
-        if (c.linkedin_url && c.source !== 'LinkedIn')
-          events.push({ id: `li-${c.id}`, type: 'linkedin_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
+      if (socialRes.data) {
+        for (const c of socialRes.data) {
+          if (c.github_url)
+            events.push({ id: `gh-${c.id}`, type: 'github_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
+          if (c.behance_url)
+            events.push({ id: `be-${c.id}`, type: 'behance_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
+          // only show LinkedIn profile event if candidate wasn't captured via LinkedIn (avoid duplicate with candidate_added)
+          if (c.linkedin_url && c.source !== 'LinkedIn')
+            events.push({ id: `li-${c.id}`, type: 'linkedin_profile', details: { name: c.name }, candidate_id: c.id, ts: c.created_at })
+        }
       }
-    }
 
-    events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
-    setActivity(events.slice(0, 20))
-    setActivityLoading(false)
+      events.sort((a, b) => new Date(b.ts) - new Date(a.ts))
+      setActivity(events.slice(0, 20))
+    } catch (err) {
+      console.error('[fetchActivity]', err)
+    } finally {
+      setActivityLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchStats(); fetchActivity() }, [fetchStats, fetchActivity])

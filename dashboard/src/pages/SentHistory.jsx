@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -15,17 +15,24 @@ const TEMPLATE_LABELS = {
 export default function SentHistory() {
   const [history, setHistory]   = useState([])
   const [loading, setLoading]   = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [expanded, setExpanded] = useState(null)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('email_history')
-        .select('*, candidates(id, name, email)')
-        .order('sent_at', { ascending: false })
-        .limit(200)
-      setHistory(data ?? [])
-      setLoading(false)
+      try {
+        const { data, error } = await supabase
+          .from('email_history')
+          .select('*, candidates(id, name, email)')
+          .order('sent_at', { ascending: false })
+          .limit(200)
+        if (error) throw error
+        setHistory(data ?? [])
+      } catch (err) {
+        setLoadError(err?.message ?? 'Failed to load email history')
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -33,6 +40,12 @@ export default function SentHistory() {
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
       <div className="spinner spinner-lg" />
+    </div>
+  )
+
+  if (loadError) return (
+    <div className="page">
+      <div className="error-banner">{loadError}</div>
     </div>
   )
 
@@ -66,8 +79,8 @@ export default function SentHistory() {
             </thead>
             <tbody>
               {history.map(row => (
-                <>
-                  <tr key={row.id} onClick={() => setExpanded(e => e === row.id ? null : row.id)} style={{ cursor: 'pointer' }}>
+                <Fragment key={row.id}>
+                  <tr onClick={() => setExpanded(e => e === row.id ? null : row.id)} style={{ cursor: 'pointer' }}>
                     <td>
                       {row.candidates ? (
                         <Link
@@ -121,7 +134,7 @@ export default function SentHistory() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

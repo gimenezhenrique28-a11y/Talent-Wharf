@@ -49,7 +49,7 @@ export default function CandidateDetail() {
     setLoading(true)
     const [{ data: c }, { data: n }, { data: fb }] = await Promise.all([
       supabase.from('candidates').select('*').eq('id', id).single(),
-      supabase.from('candidate_notes').select('*, users(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
+      supabase.from('candidate_notes').select('*, profiles(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
       supabase.from('candidate_feedback').select('*, profiles!candidate_feedback_user_id_fkey(name)').eq('candidate_id', id).order('created_at', { ascending: false }),
     ])
     setCandidate(c)
@@ -137,14 +137,19 @@ export default function CandidateDetail() {
   async function handleAddNote() {
     if (!noteText.trim()) return
     setAddingNote(true)
-    await supabase.from('candidate_notes').insert({
+    const { error } = await supabase.from('candidate_notes').insert({
       candidate_id: id,
       user_id: user.id,
       content: noteText.trim(),
     })
+    if (error) {
+      toast(error.message, 'error')
+      setAddingNote(false)
+      return
+    }
     setNoteText('')
     setAddingNote(false)
-    const { data } = await supabase.from('candidate_notes').select('*, users(name)').eq('candidate_id', id).order('created_at', { ascending: false })
+    const { data } = await supabase.from('candidate_notes').select('*, profiles(name)').eq('candidate_id', id).order('created_at', { ascending: false })
     setNotes(data ?? [])
   }
 
@@ -556,7 +561,7 @@ export default function CandidateDetail() {
                 {notes.map(note => (
                   <div key={note.id} style={{ background: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{note.users?.name ?? 'Unknown'}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{note.profiles?.name ?? 'Unknown'}</span>
                       <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>
                         {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
                       </span>
