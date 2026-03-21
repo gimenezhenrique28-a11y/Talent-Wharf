@@ -61,7 +61,7 @@ async function sendDigest(
   if (all.length === 0) return; // nothing to report
 
   const counts: Record<string, number> = {
-    new: 0, contacted: 0, interviewing: 0, hired: 0, rejected: 0,
+    new: 0, screening: 0, interviewing: 0, offered: 0, hired: 0, rejected: 0,
   };
   for (const c of all) {
     if (c.status in counts) counts[c.status]++;
@@ -89,8 +89,9 @@ async function sendDigest(
 
   const statusLine = [
     `🆕 *${counts.new}* New`,
-    `📞 *${counts.contacted}* Contacted`,
+    counts.screening > 0 ? `🔍 *${counts.screening}* Screening` : null,
     `🎤 *${counts.interviewing}* Interviewing`,
+    counts.offered > 0 ? `📋 *${counts.offered}* Offered` : null,
     `✅ *${counts.hired}* Hired`,
     counts.rejected > 0 ? `❌ *${counts.rejected}* Passed` : null,
   ].filter(Boolean).join("  ·  ");

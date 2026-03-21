@@ -172,6 +172,7 @@ function ColBody({ col, cards, compact, groupBySwimlane, dragOverCol, setDragOve
 export default function Pipeline() {
   const [candidates, setCandidates]           = useState([])
   const [loading, setLoading]                 = useState(true)
+  const [loadError, setLoadError]             = useState(null)
   const [dragOverCol, setDragOverCol]         = useState(null)
   const [compact, setCompact]                 = useState(false)
   const [groupBySwimlane, setGroupBySwimlane] = useState(false)
@@ -180,12 +181,18 @@ export default function Pipeline() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('candidates')
-        .select('id, name, headline, status, skills, source, position, status_changed_at, created_at')
-        .order('status_changed_at', { ascending: false })
-      setCandidates(data ?? [])
-      setLoading(false)
+      try {
+        const { data, error } = await supabase
+          .from('candidates')
+          .select('id, name, headline, status, skills, source, position, status_changed_at, created_at')
+          .order('status_changed_at', { ascending: false })
+        if (error) throw error
+        setCandidates(data ?? [])
+      } catch (err) {
+        setLoadError(err?.message ?? 'Failed to load pipeline')
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -233,6 +240,12 @@ export default function Pipeline() {
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
       <div className="spinner spinner-lg" />
+    </div>
+  )
+
+  if (loadError) return (
+    <div className="page">
+      <div className="error-banner">{loadError}</div>
     </div>
   )
 

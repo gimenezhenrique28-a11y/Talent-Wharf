@@ -162,7 +162,7 @@ async function handlePipeline(orgId: string): Promise<Response> {
     .eq("org_id", orgId);
 
   const counts: Record<string, number> = {
-    new: 0, contacted: 0, interviewing: 0, hired: 0, rejected: 0,
+    new: 0, screening: 0, interviewing: 0, offered: 0, hired: 0, rejected: 0,
   };
   for (const c of (candidates ?? [])) {
     if (c.status in counts) counts[c.status]++;
@@ -171,8 +171,9 @@ async function handlePipeline(orgId: string): Promise<Response> {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   const lines = [
     `🆕 New: *${counts.new}*`,
-    `📞 Contacted: *${counts.contacted}*`,
+    `🔍 Screening: *${counts.screening}*`,
     `🎤 Interviewing: *${counts.interviewing}*`,
+    `📋 Offered: *${counts.offered}*`,
     `✅ Hired: *${counts.hired}*`,
     `❌ Rejected: *${counts.rejected}*`,
   ].join("\n");

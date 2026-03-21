@@ -20,14 +20,21 @@ const SKILL_COLOR  = '#2dd4bf'  // teal
 export default function Analytics() {
   const [candidates, setCandidates] = useState([])
   const [loading, setLoading]       = useState(true)
+  const [loadError, setLoadError]   = useState(null)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('candidates')
-        .select('status, source, skills, created_at')
-      setCandidates(data ?? [])
-      setLoading(false)
+      try {
+        const { data, error } = await supabase
+          .from('candidates')
+          .select('status, source, skills, created_at')
+        if (error) throw error
+        setCandidates(data ?? [])
+      } catch (err) {
+        setLoadError(err?.message ?? 'Failed to load analytics')
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -35,6 +42,12 @@ export default function Analytics() {
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
       <div className="spinner spinner-lg" />
+    </div>
+  )
+
+  if (loadError) return (
+    <div className="page">
+      <div className="error-banner">{loadError}</div>
     </div>
   )
 

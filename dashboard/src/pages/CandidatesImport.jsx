@@ -94,7 +94,7 @@ export default function CandidatesImport() {
 
       <div className="page-header">
         <div>
-          <h2 className="page-title">Import Candidates</h2>
+          <h1 className="page-title">Import Candidates</h1>
           <p className="page-subtitle">Upload a CSV file to import candidates in bulk</p>
         </div>
       </div>

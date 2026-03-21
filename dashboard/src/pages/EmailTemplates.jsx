@@ -244,9 +244,15 @@ export default function EmailTemplates() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('email_templates').select('*').order('name')
-    setTemplates(data ?? [])
-    setLoading(false)
+    try {
+      const { data, error } = await supabase.from('email_templates').select('*').order('name')
+      if (error) throw error
+      setTemplates(data ?? [])
+    } catch (err) {
+      toast(err?.message ?? 'Failed to load templates', 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   /* ── Filtered list ── */
@@ -301,7 +307,8 @@ export default function EmailTemplates() {
   async function handleDelete(id, e) {
     e.stopPropagation()
     if (!confirm('Delete this template? This cannot be undone.')) return
-    await supabase.from('email_templates').delete().eq('id', id)
+    const { error } = await supabase.from('email_templates').delete().eq('id', id)
+    if (error) { toast(error.message, 'error'); return }
     setTemplates(prev => prev.filter(t => t.id !== id))
     if (expanded === id) setExpanded(null)
     toast('Template deleted')

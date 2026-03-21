@@ -215,13 +215,15 @@ export default function Settings() {
   }
 
   async function handleToggleWebhook(id, active) {
-    await supabase.from('webhooks').update({ active: !active }).eq('id', id)
+    const { error } = await supabase.from('webhooks').update({ active: !active }).eq('id', id)
+    if (error) { toast(error.message, 'error'); return }
     loadWebhooks()
   }
 
   async function handleDeleteWebhook(id) {
     if (!confirm('Delete this webhook?')) return
-    await supabase.from('webhooks').delete().eq('id', id)
+    const { error } = await supabase.from('webhooks').delete().eq('id', id)
+    if (error) { toast(error.message, 'error'); return }
     toast('Webhook deleted')
     loadWebhooks()
   }
