@@ -118,6 +118,9 @@ async function fireGeneric(
     headers["X-Wharf-Signature"] = await hmacSha256(webhook.secret, body);
   }
 
+  if (!isAllowedWebhookUrl(webhook.url)) {
+    throw new Error(`Blocked webhook URL (private/non-HTTPS): ${webhook.url}`);
+  }
   const res = await fetch(webhook.url, { method: "POST", headers, body });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${webhook.url}`);
 }
@@ -233,6 +236,9 @@ async function fireSlack(
     ];
   }
 
+  if (!isAllowedWebhookUrl(webhook.url)) {
+    throw new Error(`Blocked Slack webhook URL (private/non-HTTPS): ${webhook.url}`);
+  }
   const res = await fetch(webhook.url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -242,6 +248,34 @@ async function fireSlack(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function isAllowedWebhookUrl(urlStr: string): boolean {
+  let url: URL;
+  try { url = new URL(urlStr); } catch { return false; }
+
+  // HTTPS only
+  if (url.protocol !== "https:") return false;
+
+  const host = url.hostname.toLowerCase();
+
+  // Block private/loopback/link-local ranges (SSRF protection)
+  const blockedPatterns = [
+    /^localhost$/,
+    /^127\./,
+    /^0\./,
+    /^10\./,
+    /^192\.168\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^169\.254\./,
+    /^::1$/,
+    /^fc[0-9a-f]{2}:/i,
+    /^fe[89ab][0-9a-f]:/i,
+    /^fd[0-9a-f]{2}:/i,
+    /^0\.0\.0\.0$/,
+    /^metadata\.google\.internal$/,
+  ];
+  return !blockedPatterns.some(r => r.test(host));
+}
 
 async function hmacSha256(secret: string, body: string): Promise<string> {
   const enc  = new TextEncoder();
