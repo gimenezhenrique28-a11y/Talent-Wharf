@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
-/* Official TalentWharf SVG wordmark */
 function WharfWordmark({ height = 36 }) {
   return (
     <svg
@@ -44,89 +43,90 @@ export default function Login() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--black)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      {/* Subtle grid background */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px)',
-        pointerEvents: 'none',
-      }} />
+    <div className="auth-layout">
 
-      <div style={{
-        width: '100%',
-        maxWidth: 420,
-        background: 'var(--gray-900)',
-        border: '1px solid var(--color-border-strong)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '48px 40px',
-        position: 'relative',
-      }}>
-
-        {/* Logo */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 36, gap: 16 }}>
-          <div style={{ color: 'var(--white)' }}>
-            <WharfWordmark height={120} />
+      {/* Left — branding */}
+      <div className="auth-brand">
+        <div className="auth-brand-bg" />
+        <div style={{ position: 'relative' }}>
+          <div style={{ color: 'var(--white)', marginBottom: 48 }}>
+            <WharfWordmark height={38} />
           </div>
-          <p style={{
-            color: 'var(--color-text-secondary)',
-            fontSize: 14,
-            letterSpacing: 'var(--ls-body)',
+          <h1 style={{
+            fontSize: 28,
+            fontWeight: 600,
+            color: 'var(--white)',
+            lineHeight: 1.25,
+            letterSpacing: '-0.02em',
+            marginBottom: 12,
           }}>
-            Sign in to your account
+            Welcome back.
+          </h1>
+          <p style={{
+            fontSize: 14,
+            color: 'var(--color-text-secondary)',
+            lineHeight: 1.65,
+            maxWidth: 300,
+          }}>
+            Your pipeline, candidates, and outreach are ready and waiting.
           </p>
         </div>
-
-        {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="input-group">
-            <label className="input-label">Email address</label>
-            <input
-              className="input"
-              type="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="input-group">
-            <label className="input-label">Password</label>
-            <input
-              className="input"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button
-            className="btn btn-primary btn-full"
-            type="submit"
-            disabled={loading}
-            style={{ marginTop: 8 }}
-          >
-            {loading ? <><div className="spinner" /> Signing in...</> : 'Sign In'}
-          </button>
-        </form>
-
-        <p style={{ textAlign: 'center', marginTop: 24, color: 'var(--color-text-secondary)', fontSize: 14 }}>
-          Don't have an account?{' '}
-          <Link to="/register" style={{ color: 'var(--white)', fontWeight: 500 }}>Sign up</Link>
-        </p>
-
-
       </div>
+
+      {/* Right — form */}
+      <div className="auth-form-panel">
+        <div className="auth-form-inner">
+
+          <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--white)', marginBottom: 4, letterSpacing: '-0.01em' }}>
+            Sign in
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 28, letterSpacing: 'var(--ls-body)' }}>
+            Enter your credentials to continue
+          </p>
+
+          {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="input-group">
+              <label className="input-label">Email address</label>
+              <input
+                className="input"
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Password</label>
+              <input
+                className="input"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <button
+              className="btn btn-primary btn-full"
+              type="submit"
+              disabled={loading}
+              style={{ marginTop: 8, height: 40 }}
+            >
+              {loading ? <><div className="spinner" /> Signing in...</> : 'Sign In'}
+            </button>
+          </form>
+
+          <p style={{ textAlign: 'center', marginTop: 24, color: 'var(--color-text-secondary)', fontSize: 13 }}>
+            Don't have an account?{' '}
+            <Link to="/register" style={{ color: 'var(--white)', fontWeight: 500 }}>Sign up free</Link>
+          </p>
+        </div>
+      </div>
+
     </div>
   )
 }

@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
+import { CheckCircle2 } from 'lucide-react'
+
+const FEATURES = [
+  'AI-powered candidate matching',
+  'Visual hiring pipeline & swimlanes',
+  'Automated outreach & email templates',
+  'LinkedIn & Gmail integration',
+]
 
 function WharfWordmark({ height = 36 }) {
   return (
@@ -44,99 +52,132 @@ export default function Register() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--black)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      {/* Subtle grid background */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px)',
-        pointerEvents: 'none',
-      }} />
+    <div className="auth-layout">
 
-      <div style={{
-        width: '100%',
-        maxWidth: 420,
-        background: 'var(--gray-900)',
-        border: '1px solid var(--color-border-strong)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '48px 40px',
-        position: 'relative',
-      }}>
-
-        {/* Logo */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 36, gap: 16 }}>
-          <div style={{ color: 'var(--white)' }}>
-            <WharfWordmark height={120} />
+      {/* Left — branding */}
+      <div className="auth-brand">
+        <div className="auth-brand-bg" />
+        <div style={{ position: 'relative' }}>
+          <div style={{ color: 'var(--white)', marginBottom: 48 }}>
+            <WharfWordmark height={38} />
           </div>
-          <p style={{
-            color: 'var(--color-text-secondary)',
-            fontSize: 14,
-            letterSpacing: 'var(--ls-body)',
+          <h1 style={{
+            fontSize: 28,
+            fontWeight: 600,
+            color: 'var(--white)',
+            lineHeight: 1.25,
+            letterSpacing: '-0.02em',
+            marginBottom: 12,
           }}>
+            Hire smarter,<br />move faster.
+          </h1>
+          <p style={{
+            fontSize: 14,
+            color: 'var(--color-text-secondary)',
+            lineHeight: 1.65,
+            marginBottom: 40,
+            maxWidth: 320,
+          }}>
+            The AI-powered recruiting platform built for teams that take hiring seriously.
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {FEATURES.map(f => (
+              <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <CheckCircle2 size={14} style={{ color: 'var(--white)', flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', letterSpacing: 'var(--ls-body)' }}>{f}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Right — form */}
+      <div className="auth-form-panel">
+        <div className="auth-form-inner">
+
+          {/* Mobile-only logo */}
+          <div style={{ color: 'var(--white)', marginBottom: 32, display: 'none' }} className="auth-mobile-logo">
+            <WharfWordmark height={32} />
+          </div>
+
+          <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--white)', marginBottom: 4, letterSpacing: '-0.01em' }}>
             Create your account
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 28, letterSpacing: 'var(--ls-body)' }}>
+            Free to start — no credit card required
+          </p>
+
+          {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="input-group">
+              <label className="input-label">Full name</label>
+              <input
+                className="input"
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Work email</label>
+              <input
+                className="input"
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Password</label>
+              <input
+                className="input"
+                type="password"
+                placeholder="Min 6 characters"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            <button
+              className="btn btn-primary btn-full"
+              type="submit"
+              disabled={loading}
+              style={{ marginTop: 8, height: 40 }}
+            >
+              {loading
+                ? <><div className="spinner" style={{ borderTopColor: '#000' }} /> Creating account...</>
+                : 'Create Account'}
+            </button>
+          </form>
+
+          <p style={{ textAlign: 'center', marginTop: 24, color: 'var(--color-text-secondary)', fontSize: 13 }}>
+            Already have an account?{' '}
+            <Link to="/login" style={{ color: 'var(--white)', fontWeight: 500 }}>Sign in</Link>
+          </p>
+
+          <p style={{
+            textAlign: 'center',
+            marginTop: 24,
+            fontSize: 11,
+            color: 'var(--color-text-tertiary)',
+            letterSpacing: 'var(--ls-body)',
+            lineHeight: 1.5,
+          }}>
+            By creating an account you agree to our{' '}
+            <span style={{ color: 'var(--color-text-secondary)' }}>Terms of Service</span>{' '}
+            and{' '}
+            <span style={{ color: 'var(--color-text-secondary)' }}>Privacy Policy</span>.
           </p>
         </div>
-
-        {error && <div className="error-banner" style={{ marginBottom: 20 }}>{error}</div>}
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="input-group">
-            <label className="input-label">Full name</label>
-            <input
-              className="input"
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="input-group">
-            <label className="input-label">Email address</label>
-            <input
-              className="input"
-              type="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="input-group">
-            <label className="input-label">Password</label>
-            <input
-              className="input"
-              type="password"
-              placeholder="Min 6 characters"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
-          <button
-            className="btn btn-primary btn-full"
-            type="submit"
-            disabled={loading}
-            style={{ marginTop: 8 }}
-          >
-            {loading ? <><div className="spinner" style={{ borderTopColor: '#000' }} /> Creating account...</> : 'Create Account'}
-          </button>
-        </form>
-
-        <p style={{ textAlign: 'center', marginTop: 24, color: 'var(--color-text-secondary)', fontSize: 14 }}>
-          Already have an account?{' '}
-          <Link to="/login" style={{ color: 'var(--white)', fontWeight: 500 }}>Sign in</Link>
-        </p>
       </div>
+
     </div>
   )
 }
