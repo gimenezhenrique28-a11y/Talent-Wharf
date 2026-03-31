@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "TalentWharf - Candidate Capture",
   "version": "1.0.0",
-  "description": "Capture candidates from LinkedIn and Gmail with one click",
+  "description": "Capture candidates from LinkedIn and Gmail with one click. Save profiles to your TalentWharf pipeline instantly — no copy-pasting required.",
+  "homepage_url": "https://app.talentwharf.com",
   "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
